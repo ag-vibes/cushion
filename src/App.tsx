@@ -209,10 +209,12 @@ function Groups({
   p,
   editable,
   onChange,
+  everydayForm,
 }: {
   p: Period;
   editable?: boolean;
   onChange?: (p: Period) => void;
+  everydayForm?: React.ReactNode;
 }) {
   const status = (group: "mandatory" | "oneOff", e: Expense) => (
     <button
@@ -294,15 +296,21 @@ function Groups({
       >
         {p.mandatory.map((e) => row(e, "mandatory"))}
       </Group>
-      <Group title="повседневные расходы" empty="повседневные лимиты не заданы">
+      <section className="card">
+        <h2>повседневные расходы</h2>
+        {p.everyday.length === 0 && (
+          <p className="muted">повседневные лимиты не заданы</p>
+        )}
         {p.everyday.map((e) => (
           <div className="row" key={e.id}>
             <span>
               {e.category}
-              <small>
-                потрачено {formatAmount(spent(e))} ₽ · запланировано{" "}
-                {formatAmount(e.limit)} ₽
-              </small>
+              {!editable && (
+                <small className="everyday-details">
+                  <span>потрачено {formatAmount(spent(e))} ₽</span>
+                  <span>запланировано {formatAmount(e.limit)} ₽</span>
+                </small>
+              )}
             </span>
             <span>
               {money(editable ? e.limit : stillPlanned(e))}{" "}
@@ -348,7 +356,8 @@ function Groups({
             </span>
           </div>
         ))}
-      </Group>
+        {everydayForm}
+      </section>
       <Group title="разовые расходы" empty="разовых расходов не было">
         {p.oneOff.map((e) => row(e, "oneOff"))}
       </Group>
@@ -587,8 +596,7 @@ function AddEverydayLimit({
   };
   if (!available.length) return null;
   return (
-    <section className="card">
-      <h2>добавить повседневный лимит</h2>
+    <div className="limit-adder">
       <form className="inline" onSubmit={add}>
         <select name="category" defaultValue="" required>
           <option value="" disabled>
@@ -607,7 +615,7 @@ function AddEverydayLimit({
         />
         <button>добавить</button>
       </form>
-    </section>
+    </div>
   );
 }
 
@@ -1000,47 +1008,55 @@ function PeriodScreen({
           </>
         )}
       </section>
-      <AddEverydayLimit data={data} period={period} onChange={change} />
-      <Groups p={period} editable onChange={change} />
-      <button className="primary" onClick={() => go("add")}>
-        добавить расход
-      </button>
-      <button
-        className="secondary"
-        onClick={() => {
-          const value = prompt("сумма дохода", "");
-          if (value === null) return;
-          const amount = num(value);
-          if (!validateAmount(amount) || amount === 0) return;
-          change({ ...period, income: period.income + amount });
-        }}
-      >
-        добавить доход
-      </button>
-      <button className="secondary" onClick={() => go("create")}>
-        создать следующий период
-      </button>
-      <button
-        className="danger-link"
-        onClick={() => {
-          if (
-            confirm(
-              "очистить текущий период? даты, суммы, лимиты и расходы будут удалены",
-            )
-          ) {
-            save(
-              {
-                ...data,
-                periods: data.periods.filter((item) => item.id !== period.id),
-              },
-              "текущий период очищен",
-            );
-            go("home");
+      <section className="expense-settings">
+        <h2 className="section-title">скорректировать расходы</h2>
+        <Groups
+          p={period}
+          editable
+          onChange={change}
+          everydayForm={
+            <AddEverydayLimit data={data} period={period} onChange={change} />
           }
-        }}
-      >
-        очистить текущий период
-      </button>
+        />
+      </section>
+      <div className="period-actions">
+        <button
+          className="secondary"
+          onClick={() => {
+            const value = prompt("сумма дохода", "");
+            if (value === null) return;
+            const amount = num(value);
+            if (!validateAmount(amount) || amount === 0) return;
+            change({ ...period, income: period.income + amount });
+          }}
+        >
+          добавить доход
+        </button>
+        <button className="secondary" onClick={() => go("create")}>
+          создать следующий период
+        </button>
+        <button
+          className="secondary"
+          onClick={() => {
+            if (
+              confirm(
+                "очистить текущий период? даты, суммы, лимиты и расходы будут удалены",
+              )
+            ) {
+              save(
+                {
+                  ...data,
+                  periods: data.periods.filter((item) => item.id !== period.id),
+                },
+                "текущий период очищен",
+              );
+              go("home");
+            }
+          }}
+        >
+          очистить текущий период
+        </button>
+      </div>
     </>
   );
 }
