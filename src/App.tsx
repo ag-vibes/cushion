@@ -236,9 +236,9 @@ function Groups({
     </button>
   );
   const editAmount = (value: number, apply: (n: number) => void) => {
-    const v = prompt("новая сумма", String(value));
+    const v = prompt("новая сумма", formatInputAmount(String(value)));
     if (v === null) return;
-    const n = Number(v);
+    const n = num(v);
     if (validateAmount(n)) apply(n);
   };
   const row = (e: Expense, group?: "mandatory" | "oneOff") => (
@@ -301,11 +301,11 @@ function Groups({
               {e.category}
               <small>
                 потрачено {formatAmount(spent(e))} ₽ · запланировано{" "}
-                {formatAmount(stillPlanned(e))} ₽
+                {formatAmount(e.limit)} ₽
               </small>
             </span>
             <span>
-              {money(e.limit)}{" "}
+              {money(editable ? e.limit : stillPlanned(e))}{" "}
               {editable && (
                 <>
                   <button
@@ -724,7 +724,7 @@ function AddExpense({
   save: (d: AppData, m?: string) => void;
   done: () => void;
 }) {
-  const [type, setType] = useState("mandatory");
+  const [type, setType] = useState("everyday");
   const [category, setCategory] = useState("");
   const [error, setError] = useState("");
   const draftAmount =
@@ -1004,6 +1004,18 @@ function PeriodScreen({
       <Groups p={period} editable onChange={change} />
       <button className="primary" onClick={() => go("add")}>
         добавить расход
+      </button>
+      <button
+        className="secondary"
+        onClick={() => {
+          const value = prompt("сумма дохода", "");
+          if (value === null) return;
+          const amount = num(value);
+          if (!validateAmount(amount) || amount === 0) return;
+          change({ ...period, income: period.income + amount });
+        }}
+      >
+        добавить доход
       </button>
       <button className="secondary" onClick={() => go("create")}>
         создать следующий период
