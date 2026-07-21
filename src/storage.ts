@@ -1,4 +1,4 @@
-import { emptyData, type AppData } from "./domain";
+import { emptyData, normalizeData, type AppData } from "./domain";
 const DB = "cushion";
 const STORE = "state";
 const KEY = "app";
@@ -18,7 +18,7 @@ export class IndexedDbStorage implements Storage {
     const db = await open();
     return new Promise<AppData>((resolve, reject) => {
       const r = db.transaction(STORE).objectStore(STORE).get(KEY);
-      r.onsuccess = () => resolve(r.result ?? emptyData());
+      r.onsuccess = () => resolve(normalizeData(r.result ?? emptyData()));
       r.onerror = () => reject(r.error);
     });
   }
