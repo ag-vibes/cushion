@@ -174,7 +174,7 @@ function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
   if (!period)
     return (
       <section className="empty hero">
-        <h1>пока нет финансового периода</h1>
+        <h1>пока нет периода</h1>
         <p>
           создайте период, чтобы начать планировать расходы до следующей
           зарплаты
