@@ -67,6 +67,15 @@ p {
   color: #587060;
   font-size: 14px;
 }
+.period-meta {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 20px;
+}
+.hero .money-label {
+  display: block;
+  margin-top: 6px;
+}
 .hero h1 {
   font-size: 44px;
   line-height: 1;
@@ -338,6 +347,7 @@ select {
   background: #fff;
   padding: 17px 18px;
   font: inherit;
+  color: #17211b;
   text-align: left;
 }
 .menu span {
