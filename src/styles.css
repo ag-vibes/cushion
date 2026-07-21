@@ -115,6 +115,10 @@ p {
   font-size: 12px;
   margin-top: 3px;
 }
+.everyday-details {
+  display: grid !important;
+  gap: 2px;
+}
 .muted {
   color: #758079;
   font-size: 14px;
@@ -357,13 +361,34 @@ select {
 .summary h1 {
   margin-top: 0;
 }
-.danger-link {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: #9a4646;
-  padding: 12px;
-  font: inherit;
+.summary .row:last-of-type {
+  border-bottom: 0;
+}
+.summary > .secondary {
+  margin-top: 18px;
+}
+.expense-settings {
+  margin-top: 14px;
+}
+.section-title {
+  font-size: 22px;
+  margin: 0 0 14px;
+}
+.limit-adder {
+  border-top: 1px solid #edf0eb;
+  margin-top: 10px;
+  padding-top: 16px;
+}
+.limit-adder .inline {
+  margin-bottom: 0;
+}
+.period-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.period-actions .secondary {
+  margin-bottom: 0;
 }
 .file {
   display: block;
