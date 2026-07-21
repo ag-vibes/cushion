@@ -822,7 +822,6 @@ function PeriodScreen({
 function More({ go }: { go: (p: Page) => void }) {
   return (
     <section>
-      <h1>ещё</h1>
       <div className="menu">
         {[
           ["categories", "категории"],
