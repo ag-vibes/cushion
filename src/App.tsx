@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   categoriesFor,
   daysUntil,
@@ -325,12 +325,19 @@ function Groups({
                   <button
                     className="icon"
                     aria-label="удалить"
-                    onClick={() =>
+                    onClick={() => {
+                      if (
+                        e.expenses.length > 0 &&
+                        !confirm(
+                          "в этой категории уже есть расходы. удалить лимит вместе с ними?",
+                        )
+                      )
+                        return;
                       onChange?.({
                         ...p,
                         everyday: p.everyday.filter((x) => x.id !== e.id),
-                      })
-                    }
+                      });
+                    }}
                   >
                     ×
                   </button>
@@ -340,13 +347,10 @@ function Groups({
           </div>
         ))}
       </Group>
-      <Group title="разовые расходы" empty="разовые расходы не запланированы">
+      <Group title="разовые расходы" empty="разовых расходов не было">
         {p.oneOff.map((e) => row(e, "oneOff"))}
       </Group>
-      <Group
-        title="импульсивные покупки"
-        empty="импульсивные покупки не добавлены"
-      >
+      <Group title="импульсивные покупки" empty="импульсивных покупок не было">
         {p.impulse.map((e) => row(e))}
       </Group>
     </div>
@@ -385,26 +389,6 @@ function CreatePeriod({
   const last = [...data.periods].sort((a, b) =>
     b.createdAt.localeCompare(a.createdAt),
   )[0];
-  const draftExpenses = useMemo(() => {
-    const combined = [
-      ...data.drafts.map((d) => ({
-        id: d.id,
-        category: d.category,
-        amount: d.amount,
-        status: "предстоит" as Status,
-      })),
-      ...(last?.mandatory ?? []).map((e) => ({
-        ...e,
-        id: `last-${e.id}`,
-        status: "предстоит" as Status,
-      })),
-    ];
-    return combined.filter(
-      (item, index) =>
-        combined.findIndex((other) => other.category === item.category) ===
-        index,
-    );
-  }, [data.drafts, last]);
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
   const [base, setBase] = useState({
@@ -504,12 +488,12 @@ function CreatePeriod({
         </div>
       )}
       {step === 2 && (
-        <Picker
+        <ExpenseEditor
           title="обязательные расходы"
-          hint="выберите нужные платежи и проверьте суммы"
-          items={draftExpenses}
-          selected={mandatory}
-          setSelected={setMandatory}
+          items={mandatory}
+          setItems={setMandatory}
+          categories={categoriesFor(data, "mandatory")}
+          drafts={data.drafts}
         />
       )}{" "}
       {step === 3 && (
@@ -532,61 +516,6 @@ function CreatePeriod({
       <button className="primary" onClick={step === 4 ? submit : next}>
         {step === 4 ? "создать период" : "продолжить"}
       </button>
-    </section>
-  );
-}
-function Picker({
-  title,
-  hint,
-  items,
-  selected,
-  setSelected,
-}: {
-  title: string;
-  hint: string;
-  items: Expense[];
-  selected: Expense[];
-  setSelected: (x: Expense[]) => void;
-}) {
-  return (
-    <section className="card">
-      <h2>{title}</h2>
-      <p className="muted">{hint}</p>
-      {items.length === 0 && <p>черновиков пока нет, продолжите без них</p>}
-      {items.map((x) => {
-        const s = selected.find((y) => y.category === x.category);
-        return (
-          <label className="pick" key={x.id}>
-            <input
-              type="checkbox"
-              checked={!!s}
-              onChange={(e) =>
-                setSelected(
-                  e.target.checked
-                    ? [...selected, { ...x, id: uid() }]
-                    : selected.filter((y) => y.category !== x.category),
-                )
-              }
-            />
-            <span>{x.category}</span>
-            <input
-              className="mini"
-              inputMode="decimal"
-              value={formatInputAmount(String(s?.amount ?? x.amount))}
-              disabled={!s}
-              onChange={(e) =>
-                setSelected(
-                  selected.map((y) =>
-                    y.category === x.category
-                      ? { ...y, amount: num(e.target.value) }
-                      : y,
-                  ),
-                )
-              }
-            />
-          </label>
-        );
-      })}
     </section>
   );
 }
@@ -622,6 +551,64 @@ function LimitEditor({
     />
   );
 }
+
+function AddEverydayLimit({
+  data,
+  period,
+  onChange,
+}: {
+  data: AppData;
+  period: Period;
+  onChange: (period: Period) => void;
+}) {
+  const available = categoriesFor(data, "everyday").filter(
+    (category) => !period.everyday.some((item) => item.category === category),
+  );
+  const add = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const amount = num(form.get("amount"));
+    if (!validateAmount(amount)) return;
+    onChange({
+      ...period,
+      everyday: [
+        ...period.everyday,
+        {
+          id: uid(),
+          category: String(form.get("category")),
+          limit: amount,
+          expenses: [],
+        },
+      ],
+    });
+    event.currentTarget.reset();
+  };
+  if (!available.length) return null;
+  return (
+    <section className="card">
+      <h2>добавить повседневный лимит</h2>
+      <form className="inline" onSubmit={add}>
+        <select name="category" defaultValue="" required>
+          <option value="" disabled>
+            категория
+          </option>
+          {available.map((category) => (
+            <option key={category}>{category}</option>
+          ))}
+        </select>
+        <input
+          name="amount"
+          inputMode="decimal"
+          placeholder="лимит"
+          onInput={formatAmountField}
+          required
+        />
+        <button>добавить</button>
+      </form>
+    </section>
+  );
+}
+
 function ExpenseEditor({
   title,
   items,
@@ -629,6 +616,7 @@ function ExpenseEditor({
   categories,
   amountLabel = "сумма",
   optional,
+  drafts = [],
 }: {
   title: string;
   items: Expense[];
@@ -636,12 +624,19 @@ function ExpenseEditor({
   categories: string[];
   amountLabel?: string;
   optional?: boolean;
+  drafts?: { category: string; amount: number }[];
 }) {
   const ref = useRef<HTMLFormElement>(null);
+  const [category, setCategory] = useState("");
+  const draftAmount = drafts.find(
+    (draft) => draft.category === category,
+  )?.amount;
   const add = (e: FormEvent) => {
     e.preventDefault();
-    const f = new FormData(e.currentTarget as HTMLFormElement),
-      amount = num(f.get("amount"));
+    const f = new FormData(e.currentTarget as HTMLFormElement);
+    const rawAmount = String(f.get("amount") ?? "").trim();
+    const amount = rawAmount ? num(rawAmount) : draftAmount;
+    if (amount === undefined) return;
     if (!validateAmount(amount)) return;
     setItems([
       ...items,
@@ -654,6 +649,7 @@ function ExpenseEditor({
       },
     ]);
     ref.current?.reset();
+    setCategory("");
   };
   return (
     <section className="card">
@@ -677,7 +673,12 @@ function ExpenseEditor({
         </div>
       ))}
       <form ref={ref} onSubmit={add} className="inline">
-        <select name="category" required defaultValue="">
+        <select
+          name="category"
+          required
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+        >
           <option value="" disabled>
             категория
           </option>
@@ -689,9 +690,12 @@ function ExpenseEditor({
           name="amount"
           inputMode="decimal"
           min="0"
-          placeholder={amountLabel}
+          placeholder={
+            draftAmount === undefined
+              ? amountLabel
+              : formatInputAmount(String(draftAmount))
+          }
           onInput={formatAmountField}
-          required
         />
         {optional && (
           <input
@@ -719,11 +723,21 @@ function AddExpense({
   done: () => void;
 }) {
   const [type, setType] = useState("mandatory");
+  const [category, setCategory] = useState("");
   const [error, setError] = useState("");
+  const draftAmount =
+    type === "mandatory"
+      ? data.drafts.find((draft) => draft.category === category)?.amount
+      : undefined;
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const f = new FormData(e.currentTarget),
-      amount = num(f.get("amount"));
+    const f = new FormData(e.currentTarget);
+    const rawAmount = String(f.get("amount") ?? "").trim();
+    const amount = rawAmount ? num(rawAmount) : draftAmount;
+    if (amount === undefined) {
+      setError("введите сумму");
+      return;
+    }
     if (!validateAmount(amount)) {
       setError("сумма должна быть числом и не может быть отрицательной");
       return;
@@ -778,7 +792,13 @@ function AddExpense({
       <Top title="добавить расход" back={done} />
       <form className="card form" onSubmit={submit}>
         <Field label="тип расхода">
-          <select value={type} onChange={(e) => setType(e.target.value)}>
+          <select
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value);
+              setCategory("");
+            }}
+          >
             <option value="mandatory">обязательные расходы</option>
             <option value="everyday">повседневные расходы</option>
             <option value="oneOff">разовые расходы</option>
@@ -786,7 +806,12 @@ function AddExpense({
           </select>
         </Field>
         <Field label="категория">
-          <select name="category" required defaultValue="">
+          <select
+            name="category"
+            required
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+          >
             <option value="" disabled>
               категория
             </option>
@@ -800,9 +825,12 @@ function AddExpense({
             name="amount"
             inputMode="decimal"
             min="0"
-            placeholder="0"
+            placeholder={
+              draftAmount === undefined
+                ? "0"
+                : formatInputAmount(String(draftAmount))
+            }
             onInput={formatAmountField}
-            required
           />
         </Field>
         {(type === "mandatory" || type === "oneOff") && (
@@ -971,11 +999,33 @@ function PeriodScreen({
         )}
       </section>
       <Groups p={period} editable onChange={change} />
-      <button className="secondary" onClick={() => go("add")}>
+      <AddEverydayLimit data={data} period={period} onChange={change} />
+      <button className="primary" onClick={() => go("add")}>
         добавить расход
       </button>
-      <button className="primary" onClick={() => go("create")}>
+      <button className="secondary" onClick={() => go("create")}>
         создать следующий период
+      </button>
+      <button
+        className="danger-link"
+        onClick={() => {
+          if (
+            confirm(
+              "очистить текущий период? даты, суммы, лимиты и расходы будут удалены",
+            )
+          ) {
+            save(
+              {
+                ...data,
+                periods: data.periods.filter((item) => item.id !== period.id),
+              },
+              "текущий период очищен",
+            );
+            go("home");
+          }
+        }}
+      >
+        очистить текущий период
       </button>
     </>
   );
