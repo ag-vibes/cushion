@@ -128,6 +128,42 @@ p {
   cursor: pointer;
   width: 100%;
 }
+.category-form {
+  display: grid;
+  gap: 14px;
+}
+.category-form > input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #ccd4cc;
+  background: #fff;
+  border-radius: 12px;
+  padding: 13px;
+  font: inherit;
+}
+.type-options {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.type-options legend {
+  color: #68746c;
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+.type-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+}
+.type-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: #225f40;
+}
 .primary {
   background: #225f40;
   color: #fff;
