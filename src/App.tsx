@@ -24,7 +24,6 @@ type Page =
   | "add"
   | "create"
   | "categories"
-  | "drafts"
   | "history"
   | "backup";
 const storage = new IndexedDbStorage();
@@ -118,8 +117,6 @@ export function App() {
       <More go={setPage} />
     ) : page === "categories" ? (
       <Categories data={data} save={update} back={() => setPage("more")} />
-    ) : page === "drafts" ? (
-      <Drafts data={data} save={update} back={() => setPage("more")} />
     ) : page === "history" ? (
       <History
         periods={data.periods.filter((p) => !p.current)}
@@ -144,9 +141,7 @@ export function App() {
       </header>
       {notice && <div className="notice">{notice}</div>}
       <main>{body}</main>
-      {!["create", "add", "categories", "drafts", "history", "backup"].includes(
-        page,
-      ) && (
+      {!["create", "add", "categories", "history", "backup"].includes(page) && (
         <nav>
           <button
             className={page === "home" ? "active" : ""}
@@ -209,13 +204,18 @@ function Groups({
   p,
   editable,
   onChange,
-  everydayForm,
+  everydayCategories,
 }: {
   p: Period;
   editable?: boolean;
   onChange?: (p: Period) => void;
-  everydayForm?: React.ReactNode;
+  everydayCategories?: string[];
 }) {
+  const [amountEdit, setAmountEdit] = useState<{
+    title: string;
+    value: number;
+    apply: (amount: number) => void;
+  }>();
   const status = (group: "mandatory" | "oneOff", e: Expense) => (
     <button
       className="status"
@@ -237,12 +237,11 @@ function Groups({
       {e.status}
     </button>
   );
-  const editAmount = (value: number, apply: (n: number) => void) => {
-    const v = prompt("новая сумма", formatInputAmount(String(value)));
-    if (v === null) return;
-    const n = num(v);
-    if (validateAmount(n)) apply(n);
-  };
+  const editAmount = (
+    title: string,
+    value: number,
+    apply: (n: number) => void,
+  ) => setAmountEdit({ title, value, apply });
   const row = (e: Expense, group?: "mandatory" | "oneOff") => (
     <div className="row" key={e.id}>
       <span>
@@ -257,7 +256,7 @@ function Groups({
               className="icon"
               aria-label="изменить"
               onClick={() =>
-                editAmount(e.amount, (n) =>
+                editAmount(`изменить: ${e.category}`, e.amount, (n) =>
                   onChange?.({
                     ...p,
                     [group ?? "impulse"]: (
@@ -288,83 +287,110 @@ function Groups({
       </span>
     </div>
   );
+  const everydayItems =
+    editable && everydayCategories
+      ? everydayCategories.map(
+          (category) =>
+            p.everyday.find((item) => item.category === category) ?? {
+              id: `empty-${category}`,
+              category,
+              limit: 0,
+              expenses: [],
+            },
+        )
+      : p.everyday;
   return (
-    <div className="groups">
-      <Group
-        title="обязательные расходы"
-        empty="обязательных расходов пока нет"
-      >
-        {p.mandatory.map((e) => row(e, "mandatory"))}
-      </Group>
-      <section className="card">
-        <h2>повседневные расходы</h2>
-        {p.everyday.length === 0 && (
-          <p className="muted">повседневные лимиты не заданы</p>
-        )}
-        {p.everyday.map((e) => (
-          <div className="row" key={e.id}>
-            <span>
-              {e.category}
-              {!editable && (
-                <small className="everyday-details">
-                  <span>потрачено {formatAmount(spent(e))} ₽</span>
-                  <span>запланировано {formatAmount(e.limit)} ₽</span>
-                </small>
-              )}
-            </span>
-            <span>
-              {money(editable ? e.limit : stillPlanned(e))}{" "}
-              {editable && (
-                <>
-                  <button
-                    className="icon"
-                    aria-label="изменить"
-                    onClick={() =>
-                      editAmount(e.limit, (n) =>
-                        onChange?.({
-                          ...p,
-                          everyday: p.everyday.map((x) =>
-                            x.id === e.id ? { ...x, limit: n } : x,
+    <>
+      <div className="groups">
+        <Group
+          title="обязательные расходы"
+          empty="обязательных расходов пока нет"
+        >
+          {p.mandatory.map((e) => row(e, "mandatory"))}
+        </Group>
+        <section className="card">
+          <h2>повседневные расходы</h2>
+          {everydayItems.length === 0 && (
+            <p className="muted">повседневные лимиты не заданы</p>
+          )}
+          {everydayItems.map((e) => (
+            <div className="row" key={e.id}>
+              <span>
+                {e.category}
+                {!editable && (
+                  <small className="everyday-details">
+                    <span>потрачено {formatAmount(spent(e))} ₽</span>
+                    <span>запланировано {formatAmount(e.limit)} ₽</span>
+                  </small>
+                )}
+              </span>
+              <span>
+                {money(editable ? e.limit : stillPlanned(e))}{" "}
+                {editable && (
+                  <>
+                    <button
+                      className="icon"
+                      aria-label="изменить"
+                      onClick={() =>
+                        editAmount(`изменить: ${e.category}`, e.limit, (n) =>
+                          onChange?.(
+                            p.everyday.some(
+                              (item) => item.category === e.category,
+                            )
+                              ? {
+                                  ...p,
+                                  everyday: p.everyday.map((x) =>
+                                    x.category === e.category
+                                      ? { ...x, limit: n }
+                                      : x,
+                                  ),
+                                }
+                              : {
+                                  ...p,
+                                  everyday: [
+                                    ...p.everyday,
+                                    {
+                                      id: uid(),
+                                      category: e.category,
+                                      limit: n,
+                                      expenses: [],
+                                    },
+                                  ],
+                                },
                           ),
-                        }),
-                      )
-                    }
-                  >
-                    ✎
-                  </button>
-                  <button
-                    className="icon"
-                    aria-label="удалить"
-                    onClick={() => {
-                      if (
-                        e.expenses.length > 0 &&
-                        !confirm(
-                          "в этой категории уже есть расходы. удалить лимит вместе с ними?",
                         )
-                      )
-                        return;
-                      onChange?.({
-                        ...p,
-                        everyday: p.everyday.filter((x) => x.id !== e.id),
-                      });
-                    }}
-                  >
-                    ×
-                  </button>
-                </>
-              )}
-            </span>
-          </div>
-        ))}
-        {everydayForm}
-      </section>
-      <Group title="разовые расходы" empty="разовых расходов не было">
-        {p.oneOff.map((e) => row(e, "oneOff"))}
-      </Group>
-      <Group title="импульсивные покупки" empty="импульсивных покупок не было">
-        {p.impulse.map((e) => row(e))}
-      </Group>
-    </div>
+                      }
+                    >
+                      ✎
+                    </button>
+                  </>
+                )}
+              </span>
+            </div>
+          ))}
+        </section>
+        <Group title="разовые расходы" empty="разовых расходов не было">
+          {p.oneOff.map((e) => row(e, "oneOff"))}
+        </Group>
+        <Group
+          title="импульсивные покупки"
+          empty="импульсивных покупок не было"
+        >
+          {p.impulse.map((e) => row(e))}
+        </Group>
+      </div>
+      {amountEdit && (
+        <AmountModal
+          title={amountEdit.title}
+          initial={amountEdit.value}
+          close={() => setAmountEdit(undefined)}
+          save={(amount) => {
+            amountEdit.apply(amount);
+            setAmountEdit(undefined);
+          }}
+        />
+      )}
+    </>
   );
 }
 function Group({
@@ -563,62 +589,6 @@ function LimitEditor({
   );
 }
 
-function AddEverydayLimit({
-  data,
-  period,
-  onChange,
-}: {
-  data: AppData;
-  period: Period;
-  onChange: (period: Period) => void;
-}) {
-  const available = categoriesFor(data, "everyday").filter(
-    (category) => !period.everyday.some((item) => item.category === category),
-  );
-  const add = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const amount = num(form.get("amount"));
-    if (!validateAmount(amount)) return;
-    onChange({
-      ...period,
-      everyday: [
-        ...period.everyday,
-        {
-          id: uid(),
-          category: String(form.get("category")),
-          limit: amount,
-          expenses: [],
-        },
-      ],
-    });
-    event.currentTarget.reset();
-  };
-  if (!available.length) return null;
-  return (
-    <div className="limit-adder">
-      <form className="inline" onSubmit={add}>
-        <select name="category" defaultValue="" required>
-          <option value="" disabled>
-            категория
-          </option>
-          {available.map((category) => (
-            <option key={category}>{category}</option>
-          ))}
-        </select>
-        <input
-          name="amount"
-          inputMode="decimal"
-          placeholder="лимит"
-          onInput={formatAmountField}
-          required
-        />
-        <button>добавить</button>
-      </form>
-    </div>
-  );
-}
-
 function ExpenseEditor({
   title,
   items,
@@ -756,14 +726,23 @@ function AddExpense({
     let p = period;
     if (type === "everyday") {
       const target = p.everyday.find((x) => x.category === category);
-      if (!target) return setError("сначала добавьте лимит для этой категории");
       p = {
         ...p,
-        everyday: p.everyday.map((x) =>
-          x.id === target.id
-            ? { ...x, expenses: [...x.expenses, { id: uid(), amount }] }
-            : x,
-        ),
+        everyday: target
+          ? p.everyday.map((x) =>
+              x.id === target.id
+                ? { ...x, expenses: [...x.expenses, { id: uid(), amount }] }
+                : x,
+            )
+          : [
+              ...p.everyday,
+              {
+                id: uid(),
+                category,
+                limit: 0,
+                expenses: [{ id: uid(), amount }],
+              },
+            ],
       };
     } else {
       const e = {
@@ -795,7 +774,7 @@ function AddExpense({
   };
   const cats =
     type === "everyday"
-      ? period.everyday.map((x) => x.category)
+      ? categoriesFor(data, "everyday")
       : categoriesFor(data, type as ExpenseKind);
   return (
     <section>
@@ -863,7 +842,7 @@ function AddExpense({
   );
 }
 
-function PeriodScreen({
+function LegacyPeriodScreen({
   data,
   period,
   save,
@@ -1014,9 +993,7 @@ function PeriodScreen({
           p={period}
           editable
           onChange={change}
-          everydayForm={
-            <AddEverydayLimit data={data} period={period} onChange={change} />
-          }
+          everydayCategories={categoriesFor(data, "everyday")}
         />
       </section>
       <div className="period-actions">
@@ -1060,13 +1037,190 @@ function PeriodScreen({
     </>
   );
 }
+type PeriodField =
+  "startDate" | "nextSalaryDate" | "income" | "previousBalance";
+
+function PeriodScreen({
+  data,
+  period,
+  save,
+  go,
+}: {
+  data: AppData;
+  period?: Period;
+  save: (d: AppData, m?: string) => void;
+  go: (p: Page) => void;
+}) {
+  const [editField, setEditField] = useState<PeriodField>();
+  const [editValue, setEditValue] = useState("");
+  const [editError, setEditError] = useState("");
+  const [addingIncome, setAddingIncome] = useState(false);
+  if (!period)
+    return (
+      <section className="empty">
+        <h1>нет текущего периода</h1>
+        <button className="primary" onClick={() => go("create")}>
+          создать период
+        </button>
+      </section>
+    );
+  const change = (p: Period) =>
+    save(
+      { ...data, periods: data.periods.map((x) => (x.id === p.id ? p : x)) },
+      "изменения сохранены",
+    );
+  const fieldLabels: Record<PeriodField, string> = {
+    startDate: "дата начала",
+    nextSalaryDate: "дата следующей зарплаты",
+    income: "доход",
+    previousBalance: "предыдущий остаток",
+  };
+  const openEdit = (field: PeriodField) => {
+    setEditField(field);
+    setEditError("");
+    setEditValue(
+      field === "startDate" || field === "nextSalaryDate"
+        ? toRuDate(period[field])
+        : formatInputAmount(String(period[field])),
+    );
+  };
+  const saveField = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editField) return;
+    if (editField === "startDate" || editField === "nextSalaryDate") {
+      const date = fromRuDate(editValue);
+      if (
+        !date ||
+        (editField === "startDate" && date >= period.nextSalaryDate) ||
+        (editField === "nextSalaryDate" && date <= period.startDate)
+      ) {
+        setEditError("проверьте дату и границы периода");
+        return;
+      }
+      change({ ...period, [editField]: date });
+    } else {
+      const amount = num(editValue);
+      if (!validateAmount(amount, editField === "previousBalance")) {
+        setEditError("проверьте введённую сумму");
+        return;
+      }
+      change({ ...period, [editField]: amount });
+    }
+    setEditField(undefined);
+  };
+  const settingRow = (field: PeriodField, value: React.ReactNode) => (
+    <div className="row" key={field}>
+      <span>{fieldLabels[field]}</span>
+      <span>
+        {value}{" "}
+        <button
+          className="icon"
+          aria-label={`изменить ${fieldLabels[field]}`}
+          onClick={() => openEdit(field)}
+        >
+          ✎
+        </button>
+      </span>
+    </div>
+  );
+  return (
+    <>
+      <section className="period-settings">
+        <h2 className="section-title">изменить период</h2>
+        <div className="card summary">
+          {settingRow("startDate", toRuDate(period.startDate))}
+          {settingRow("nextSalaryDate", toRuDate(period.nextSalaryDate))}
+          {settingRow("income", money(period.income))}
+          {settingRow("previousBalance", money(period.previousBalance))}
+        </div>
+      </section>
+      <section className="expense-settings">
+        <h2 className="section-title">скорректировать расходы</h2>
+        <Groups
+          p={period}
+          editable
+          onChange={change}
+          everydayCategories={categoriesFor(data, "everyday")}
+        />
+      </section>
+      <div className="period-actions">
+        <button className="secondary" onClick={() => setAddingIncome(true)}>
+          добавить доход
+        </button>
+        <button className="secondary" onClick={() => go("create")}>
+          создать следующий период
+        </button>
+        <button
+          className="secondary"
+          onClick={() => {
+            if (
+              confirm(
+                "очистить текущий период? даты, суммы, лимиты и расходы будут удалены",
+              )
+            ) {
+              save(
+                {
+                  ...data,
+                  periods: data.periods.filter((item) => item.id !== period.id),
+                },
+                "текущий период очищен",
+              );
+              go("home");
+            }
+          }}
+        >
+          очистить текущий период
+        </button>
+      </div>
+      {editField && (
+        <Modal
+          title={`изменить: ${fieldLabels[editField]}`}
+          onClose={() => setEditField(undefined)}
+        >
+          <form className="form" onSubmit={saveField}>
+            <input
+              autoFocus
+              inputMode={
+                editField === "startDate" || editField === "nextSalaryDate"
+                  ? "numeric"
+                  : "decimal"
+              }
+              value={editValue}
+              onChange={(event) =>
+                setEditValue(
+                  editField === "startDate" || editField === "nextSalaryDate"
+                    ? event.target.value
+                    : formatInputAmount(event.target.value),
+                )
+              }
+            />
+            {editError && <p className="error">{editError}</p>}
+            <ModalActions close={() => setEditField(undefined)} />
+          </form>
+        </Modal>
+      )}
+      {addingIncome && (
+        <AmountModal
+          title="добавить доход"
+          initial={0}
+          close={() => setAddingIncome(false)}
+          save={(amount) => {
+            if (amount > 0)
+              change({ ...period, income: period.income + amount });
+            setAddingIncome(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 function More({ go }: { go: (p: Page) => void }) {
   return (
     <section>
       <div className="menu">
         {[
-          ["categories", "категории"],
-          ["drafts", "черновики обязательных расходов"],
+          ["categories", "категории и расходы"],
           ["history", "история периодов"],
           ["backup", "резервная копия"],
         ].map(([p, t]) => (
@@ -1079,7 +1233,7 @@ function More({ go }: { go: (p: Page) => void }) {
     </section>
   );
 }
-function Categories({
+function LegacyCategories({
   data,
   save,
   back,
@@ -1201,6 +1355,330 @@ function Categories({
     </section>
   );
 }
+const expenseTypeOptions: [ExpenseKind, string][] = [
+  ["mandatory", "обязательные расходы"],
+  ["everyday", "повседневные расходы"],
+  ["oneOff", "разовые расходы"],
+  ["impulse", "импульсивные покупки"],
+];
+
+function Categories({
+  data,
+  save,
+  back,
+}: {
+  data: AppData;
+  save: (d: AppData, m?: string) => void;
+  back: () => void;
+}) {
+  const [order, setOrder] = useState(data.categories);
+  const dragged = useRef<string | undefined>(undefined);
+  const dragOrder = useRef(data.categories);
+  const [editing, setEditing] = useState<string>();
+  const [deleting, setDeleting] = useState<string>();
+  const [editName, setEditName] = useState("");
+  const [editTypes, setEditTypes] = useState<ExpenseKind[]>([]);
+  const [editError, setEditError] = useState("");
+  const [draftCategory, setDraftCategory] = useState<string>();
+  const [addError, setAddError] = useState("");
+  useEffect(() => {
+    setOrder(data.categories);
+    dragOrder.current = data.categories;
+  }, [data.categories]);
+  const typeLabels: Record<ExpenseKind, string> = {
+    mandatory: "обязательные",
+    everyday: "повседневные",
+    oneOff: "разовые",
+    impulse: "импульсивные",
+  };
+  const beginEdit = (category: string) => {
+    setEditing(category);
+    setEditName(category);
+    setEditTypes(data.categoryTypes[category] ?? []);
+    setEditError("");
+  };
+  const saveCategory = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editing) return;
+    const name = editName.trim().toLowerCase();
+    if (!name) return setEditError("введите название категории");
+    if (!editTypes.length)
+      return setEditError("выберите хотя бы один тип расхода");
+    if (name !== editing && data.categories.includes(name))
+      return setEditError("такая категория уже есть");
+    const renameExpense = (expense: Expense) =>
+      expense.category === editing ? { ...expense, category: name } : expense;
+    save(
+      {
+        ...data,
+        categories: data.categories.map((category) =>
+          category === editing ? name : category,
+        ),
+        categoryTypes: Object.fromEntries(
+          Object.entries(data.categoryTypes)
+            .filter(([category]) => category !== editing)
+            .concat([[name, editTypes]]),
+        ),
+        drafts: data.drafts.map((draft) =>
+          draft.category === editing ? { ...draft, category: name } : draft,
+        ),
+        periods: data.periods.map((period) => ({
+          ...period,
+          mandatory: period.mandatory.map(renameExpense),
+          everyday: period.everyday.map((item) =>
+            item.category === editing ? { ...item, category: name } : item,
+          ),
+          oneOff: period.oneOff.map(renameExpense),
+          impulse: period.impulse.map(renameExpense),
+        })),
+      },
+      "категория изменена",
+    );
+    setEditing(undefined);
+  };
+  const addCategory = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("category")).trim().toLowerCase();
+    const types = form.getAll("type") as ExpenseKind[];
+    if (!types.length) return setAddError("выберите хотя бы один тип расхода");
+    if (data.categories.includes(name))
+      return setAddError("такая категория уже есть");
+    save(
+      {
+        ...data,
+        categories: [...data.categories, name],
+        categoryTypes: { ...data.categoryTypes, [name]: types },
+      },
+      "категория добавлена",
+    );
+    setAddError("");
+    event.currentTarget.reset();
+  };
+  const moveDragged = (target: string) => {
+    const source = dragged.current;
+    if (!source || source === target) return;
+    const next = [...dragOrder.current];
+    const from = next.indexOf(source);
+    const to = next.indexOf(target);
+    if (from < 0 || to < 0) return;
+    next.splice(from, 1);
+    next.splice(to, 0, source);
+    dragOrder.current = next;
+    setOrder(next);
+  };
+  const mandatoryCategories = categoriesFor(data, "mandatory");
+  return (
+    <section>
+      <Top title="категории и расходы" back={back} />
+      <h2 className="section-title">изменить категории</h2>
+      <div className="card category-list">
+        {order.map((category) => (
+          <div
+            className="row category-row"
+            key={category}
+            data-category={category}
+          >
+            <button
+              className="drag-handle"
+              aria-label={`переместить категорию ${category}`}
+              onPointerDown={(event) => {
+                dragged.current = category;
+                dragOrder.current = order;
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                if (!dragged.current) return;
+                const target = document
+                  .elementFromPoint(event.clientX, event.clientY)
+                  ?.closest<HTMLElement>("[data-category]")?.dataset.category;
+                if (target) moveDragged(target);
+              }}
+              onPointerUp={() => {
+                if (dragged.current)
+                  save(
+                    { ...data, categories: dragOrder.current },
+                    "порядок категорий сохранён",
+                  );
+                dragged.current = undefined;
+              }}
+            >
+              ≡
+            </button>
+            <span>
+              {category}
+              <small>
+                {(data.categoryTypes[category] ?? [])
+                  .map((type) => typeLabels[type])
+                  .join(" · ")}
+              </small>
+            </span>
+            <span>
+              <button
+                className="icon"
+                aria-label="изменить категорию"
+                onClick={() => beginEdit(category)}
+              >
+                ✎
+              </button>
+              <button
+                className="icon"
+                aria-label="удалить категорию"
+                onClick={() => setDeleting(category)}
+              >
+                ×
+              </button>
+            </span>
+          </div>
+        ))}
+      </div>
+      <h2 className="section-title settings-subtitle">добавить категорию</h2>
+      <form className="card category-form" onSubmit={addCategory}>
+        <input name="category" placeholder="название категории" required />
+        <TypeOptions />
+        {addError && <p className="error">{addError}</p>}
+        <button className="secondary">добавить категорию</button>
+      </form>
+      <h2 className="section-title settings-subtitle">
+        настроить обязательные расходы
+      </h2>
+      <div className="card">
+        {mandatoryCategories.map((category) => {
+          const draft = data.drafts.find((item) => item.category === category);
+          return (
+            <div className="row" key={category}>
+              <span>{category}</span>
+              <span>
+                {money(draft?.amount ?? 0)}{" "}
+                <button
+                  className="icon"
+                  aria-label={`изменить сумму для категории ${category}`}
+                  onClick={() => setDraftCategory(category)}
+                >
+                  ✎
+                </button>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {editing && (
+        <Modal title="изменить категорию" onClose={() => setEditing(undefined)}>
+          <form className="form" onSubmit={saveCategory}>
+            <Field label="название">
+              <input
+                autoFocus
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+              />
+            </Field>
+            <fieldset className="type-options">
+              <legend>тип расхода</legend>
+              {expenseTypeOptions.map(([value, label]) => (
+                <label className="type-option" key={value}>
+                  <input
+                    type="checkbox"
+                    checked={editTypes.includes(value)}
+                    onChange={(event) =>
+                      setEditTypes(
+                        event.target.checked
+                          ? [...editTypes, value]
+                          : editTypes.filter((type) => type !== value),
+                      )
+                    }
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </fieldset>
+            {editError && <p className="error">{editError}</p>}
+            <ModalActions close={() => setEditing(undefined)} />
+          </form>
+        </Modal>
+      )}
+      {deleting && (
+        <Modal title="удалить категорию" onClose={() => setDeleting(undefined)}>
+          <p>удалить категорию «{deleting}»?</p>
+          <p className="muted">
+            записанные расходы в текущем и прошлых периодах сохранятся
+          </p>
+          <div className="actions-row">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setDeleting(undefined)}
+            >
+              отмена
+            </button>
+            <button
+              className="primary"
+              onClick={() => {
+                save(
+                  {
+                    ...data,
+                    categories: data.categories.filter(
+                      (item) => item !== deleting,
+                    ),
+                    categoryTypes: Object.fromEntries(
+                      Object.entries(data.categoryTypes).filter(
+                        ([name]) => name !== deleting,
+                      ),
+                    ),
+                    drafts: data.drafts.filter(
+                      (draft) => draft.category !== deleting,
+                    ),
+                  },
+                  "категория удалена",
+                );
+                setDeleting(undefined);
+              }}
+            >
+              удалить
+            </button>
+          </div>
+        </Modal>
+      )}
+      {draftCategory && (
+        <AmountModal
+          title={`изменить: ${draftCategory}`}
+          initial={
+            data.drafts.find((draft) => draft.category === draftCategory)
+              ?.amount ?? 0
+          }
+          close={() => setDraftCategory(undefined)}
+          save={(amount) => {
+            const existing = data.drafts.find(
+              (draft) => draft.category === draftCategory,
+            );
+            save(
+              {
+                ...data,
+                drafts:
+                  amount === 0
+                    ? data.drafts.filter(
+                        (draft) => draft.category !== draftCategory,
+                      )
+                    : existing
+                      ? data.drafts.map((draft) =>
+                          draft.id === existing.id
+                            ? { ...draft, amount }
+                            : draft,
+                        )
+                      : [
+                          ...data.drafts,
+                          { id: uid(), category: draftCategory, amount },
+                        ],
+              },
+              "обязательный расход сохранён",
+            );
+            setDraftCategory(undefined);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
 function Drafts({
   data,
   save,
@@ -1395,6 +1873,93 @@ function Backup({
     </section>
   );
 }
+function TypeOptions() {
+  return (
+    <fieldset className="type-options">
+      <legend>тип расхода</legend>
+      {expenseTypeOptions.map(([value, label]) => (
+        <label className="type-option" key={value}>
+          <input type="checkbox" name="type" value={value} />
+          <span>{label}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function Modal({
+  title,
+  children,
+  onClose,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <h2>{title}</h2>
+        {children}
+      </section>
+    </div>
+  );
+}
+
+function ModalActions({ close }: { close: () => void }) {
+  return (
+    <div className="actions-row">
+      <button type="button" className="secondary" onClick={close}>
+        отмена
+      </button>
+      <button className="primary">сохранить</button>
+    </div>
+  );
+}
+
+function AmountModal({
+  title,
+  initial,
+  close,
+  save,
+}: {
+  title: string;
+  initial: number;
+  close: () => void;
+  save: (amount: number) => void;
+}) {
+  const [value, setValue] = useState(formatInputAmount(String(initial)));
+  const [error, setError] = useState("");
+  return (
+    <Modal title={title} onClose={close}>
+      <form
+        className="form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const amount = num(value);
+          if (!validateAmount(amount)) return setError("проверьте сумму");
+          save(amount);
+        }}
+      >
+        <input
+          autoFocus
+          inputMode="decimal"
+          value={value}
+          onChange={(event) => setValue(formatInputAmount(event.target.value))}
+        />
+        {error && <p className="error">{error}</p>}
+        <ModalActions close={close} />
+      </form>
+    </Modal>
+  );
+}
+
 function Field({
   label,
   children,
