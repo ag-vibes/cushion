@@ -189,12 +189,14 @@ function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
   return (
     <>
       <section className="hero">
-        <p>
-          {dateLabel(period.startDate)} — {dateLabel(period.nextSalaryDate)} ·{" "}
-          {daysUntil(period.nextSalaryDate)} дн. до зарплаты
+        <p className="period-meta">
+          <span>
+            {dateLabel(period.startDate)} — {dateLabel(period.nextSalaryDate)}
+          </span>
+          <span>{daysUntil(period.nextSalaryDate)} дн. до зарплаты</span>
         </p>
-        <span>свободные деньги</span>
         <h1>{money(freeMoney(period))}</h1>
+        <span className="money-label">свободные деньги</span>
       </section>
       <Groups p={period} />
       <button className="primary floating" onClick={() => go("add")}>
@@ -998,8 +1000,8 @@ function PeriodScreen({
           </>
         )}
       </section>
-      <Groups p={period} editable onChange={change} />
       <AddEverydayLimit data={data} period={period} onChange={change} />
+      <Groups p={period} editable onChange={change} />
       <button className="primary" onClick={() => go("add")}>
         добавить расход
       </button>
