@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
+  categoriesFor,
   daysUntil,
-  emptyData,
   formatAmount,
   freeMoney,
+  normalizeData,
   spent,
   stillPlanned,
   uid,
@@ -11,6 +12,7 @@ import {
   type AppData,
   type EverydayLimit,
   type Expense,
+  type ExpenseKind,
   type Period,
   type Status,
 } from "./domain";
@@ -285,8 +287,8 @@ function Groups({
   return (
     <div className="groups">
       <Group
-        title="обязательные платежи"
-        empty="обязательных платежей пока нет"
+        title="обязательные расходы"
+        empty="обязательных расходов пока нет"
       >
         {p.mandatory.map((e) => row(e, "mandatory"))}
       </Group>
@@ -503,7 +505,7 @@ function CreatePeriod({
       )}
       {step === 2 && (
         <Picker
-          title="обязательные платежи"
+          title="обязательные расходы"
           hint="выберите нужные платежи и проверьте суммы"
           items={draftExpenses}
           selected={mandatory}
@@ -514,7 +516,7 @@ function CreatePeriod({
         <LimitEditor
           items={everyday}
           setItems={setEveryday}
-          categories={data.categories}
+          categories={categoriesFor(data, "everyday")}
         />
       )}{" "}
       {step === 4 && (
@@ -522,7 +524,7 @@ function CreatePeriod({
           title="разовые расходы"
           items={oneOff}
           setItems={setOneOff}
-          categories={data.categories}
+          categories={categoriesFor(data, "oneOff")}
           optional
         />
       )}
@@ -770,14 +772,14 @@ function AddExpense({
   const cats =
     type === "everyday"
       ? period.everyday.map((x) => x.category)
-      : data.categories;
+      : categoriesFor(data, type as ExpenseKind);
   return (
     <section>
       <Top title="добавить расход" back={done} />
       <form className="card form" onSubmit={submit}>
         <Field label="тип расхода">
           <select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="mandatory">обязательные платежи</option>
+            <option value="mandatory">обязательные расходы</option>
             <option value="everyday">повседневные расходы</option>
             <option value="oneOff">разовые расходы</option>
             <option value="impulse">импульсивные покупки</option>
@@ -984,7 +986,7 @@ function More({ go }: { go: (p: Page) => void }) {
       <div className="menu">
         {[
           ["categories", "категории"],
-          ["drafts", "черновики обязательных платежей"],
+          ["drafts", "черновики обязательных расходов"],
           ["history", "история периодов"],
           ["backup", "резервная копия"],
         ].map(([p, t]) => (
@@ -1006,24 +1008,48 @@ function Categories({
   save: (d: AppData, m?: string) => void;
   back: () => void;
 }) {
+  const [error, setError] = useState("");
   const add = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const f = new FormData(e.currentTarget),
-      v = String(f.get("category")).trim().toLowerCase();
-    if (v && !data.categories.includes(v))
-      save(
-        { ...data, categories: [...data.categories, v] },
-        "категория добавлена",
-      );
+    const f = new FormData(e.currentTarget);
+    const v = String(f.get("category")).trim().toLowerCase();
+    const types = f.getAll("type") as ExpenseKind[];
+    if (!types.length) return setError("выберите хотя бы один тип расхода");
+    if (data.categories.includes(v))
+      return setError("такая категория уже есть");
+    setError("");
+    save(
+      {
+        ...data,
+        categories: [...data.categories, v],
+        categoryTypes: { ...data.categoryTypes, [v]: types },
+      },
+      "категория добавлена",
+    );
     e.currentTarget.reset();
   };
   const rename = (c: string) => {
     const v = prompt("новое название категории", c)?.trim().toLowerCase();
-    if (v && /^[a-z0-9 &-]+$/.test(v) && !data.categories.includes(v))
+    if (v && !data.categories.includes(v))
       save(
-        { ...data, categories: data.categories.map((x) => (x === c ? v : x)) },
+        {
+          ...data,
+          categories: data.categories.map((x) => (x === c ? v : x)),
+          categoryTypes: Object.fromEntries(
+            Object.entries(data.categoryTypes).map(([name, types]) => [
+              name === c ? v : name,
+              types,
+            ]),
+          ),
+        },
         "категория переименована",
       );
+  };
+  const typeLabels: Record<ExpenseKind, string> = {
+    mandatory: "обязательные",
+    everyday: "повседневные",
+    oneOff: "разовые",
+    impulse: "импульсивные",
   };
   return (
     <section>
@@ -1031,7 +1057,14 @@ function Categories({
       <div className="card">
         {data.categories.map((c) => (
           <div className="row" key={c}>
-            <span>{c}</span>
+            <span>
+              {c}
+              <small>
+                {(data.categoryTypes[c] ?? [])
+                  .map((type) => typeLabels[type])
+                  .join(" · ")}
+              </small>
+            </span>
             <span>
               <button
                 className="icon"
@@ -1048,6 +1081,11 @@ function Categories({
                     {
                       ...data,
                       categories: data.categories.filter((x) => x !== c),
+                      categoryTypes: Object.fromEntries(
+                        Object.entries(data.categoryTypes).filter(
+                          ([name]) => name !== c,
+                        ),
+                      ),
                     },
                     "категория удалена",
                   )
@@ -1059,14 +1097,26 @@ function Categories({
           </div>
         ))}
       </div>
-      <form className="inline" onSubmit={add}>
-        <input
-          name="category"
-          pattern="[a-z0-9 &-]+"
-          placeholder="category"
-          required
-        />
-        <button>добавить</button>
+      <form className="card category-form" onSubmit={add}>
+        <input name="category" placeholder="название категории" required />
+        <fieldset className="type-options">
+          <legend>тип расхода</legend>
+          {(
+            [
+              ["mandatory", "обязательные расходы"],
+              ["everyday", "повседневные расходы"],
+              ["oneOff", "разовые расходы"],
+              ["impulse", "импульсивные покупки"],
+            ] as [ExpenseKind, string][]
+          ).map(([value, label]) => (
+            <label className="type-option" key={value}>
+              <input type="checkbox" name="type" value={value} />
+              <span>{label}</span>
+            </label>
+          ))}
+        </fieldset>
+        {error && <p className="error">{error}</p>}
+        <button className="secondary">добавить категорию</button>
       </form>
     </section>
   );
@@ -1118,7 +1168,7 @@ function Drafts({
   };
   return (
     <section>
-      <Top title="черновики обязательных платежей" back={back} />
+      <Top title="черновики обязательных расходов" back={back} />
       <div className="card">
         {data.drafts.length === 0 && (
           <p className="muted">черновиков пока нет</p>
@@ -1158,7 +1208,7 @@ function Drafts({
           <option value="" disabled>
             категория
           </option>
-          {data.categories.map((c) => (
+          {categoriesFor(data, "mandatory").map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
@@ -1236,7 +1286,7 @@ function Backup({
       const d = JSON.parse(await file.text());
       if (!validBackup(d)) throw Error();
       if (confirm("текущие локальные данные будут заменены. продолжить?"))
-        restore(d);
+        restore(normalizeData(d));
     } catch {
       setError("файл не является корректной резервной копией cushion");
     }
