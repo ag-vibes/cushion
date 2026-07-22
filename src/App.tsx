@@ -184,6 +184,12 @@ function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
   return (
     <>
       <section className="hero">
+        <img
+          className="hero-mascot"
+          src={`${import.meta.env.BASE_URL}mascot.svg`}
+          alt=""
+          aria-hidden="true"
+        />
         <p className="period-meta">
           <span>
             {dateLabel(period.startDate)} — {dateLabel(period.nextSalaryDate)}

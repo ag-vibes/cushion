@@ -68,11 +68,26 @@ p {
   line-height: 1.45;
 }
 .hero {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(135deg, #f1f3e6 0%, #c9e0b9 100%);
   border: 1px solid rgba(43, 36, 32, 0.06);
   border-radius: 28px;
   padding: 26px 22px;
   margin-bottom: 2px;
+}
+.hero-mascot {
+  position: absolute;
+  right: -13px;
+  bottom: -13px;
+  width: 106px;
+  height: auto;
+  transform: rotate(5deg);
+  pointer-events: none;
+}
+.hero > :not(.hero-mascot) {
+  position: relative;
+  z-index: 1;
 }
 .hero p,
 .hero span {
@@ -83,6 +98,7 @@ p {
   display: grid;
   gap: 3px;
   margin: 0 0 20px;
+  padding-right: 68px;
 }
 .hero .money-label {
   display: block;
@@ -148,7 +164,7 @@ p {
 }
 .everyday-row > span:nth-child(2) {
   color: var(--color-ink);
-  font-weight: 700;
+  font-weight: 400;
   text-align: right;
   white-space: nowrap;
 }
@@ -241,8 +257,8 @@ p {
   color: var(--color-ink);
 }
 .secondary {
-  background: var(--color-surface);
-  color: var(--color-ink-muted);
+  background: #e2eedc;
+  color: var(--color-primary-text);
   margin-bottom: 10px;
 }
 .floating {
@@ -286,7 +302,7 @@ nav button {
   background: transparent;
   color: var(--color-ink-subtle);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 nav button.active {
@@ -429,6 +445,13 @@ select {
 .expense-settings {
   margin-top: 14px;
 }
+.period-settings .row {
+  font-size: 14.5px;
+  font-weight: 400;
+}
+.period-settings .row > span:last-child {
+  font-weight: 400;
+}
 .section-title {
   font-family: Nunito, sans-serif;
   font-weight: 800;
@@ -528,5 +551,9 @@ select {
 @media (max-width: 380px) {
   .hero h1 {
     font-size: 38px;
+  }
+  .hero-mascot {
+    right: -18px;
+    width: 88px;
   }
 }
