@@ -310,8 +310,45 @@ p {
 }
 .floating {
   position: sticky;
-  bottom: 88px;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 4;
   box-shadow: 0 8px 20px rgba(143, 187, 124, 0.4);
+}
+.next-period-cta {
+  margin-top: -8px;
+  margin-bottom: 0;
+}
+.period-finished {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid rgba(237, 88, 63, 0.18);
+  border-radius: 24px;
+  background: #fff1ed;
+}
+.period-finished h2,
+.period-finished p {
+  margin: 0;
+}
+.period-finished .primary {
+  margin-top: 4px;
+}
+.period-finished.compact {
+  gap: 6px;
+}
+.danger-action {
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  padding: 15px 18px;
+  background: var(--color-danger);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+.modal-copy {
+  margin: -4px 0 18px;
+  color: var(--color-ink-muted);
 }
 button {
   cursor: pointer;

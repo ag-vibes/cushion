@@ -1,6 +1,13 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Categories, CreatePeriod, formatDateInput, fromRuDate } from "./App";
+import {
+  Categories,
+  CreatePeriod,
+  Home,
+  PeriodScreen,
+  formatDateInput,
+  fromRuDate,
+} from "./App";
 import { emptyData, type AppData, type Period } from "./domain";
 
 const makePeriod = (current: boolean): Period => ({
@@ -25,7 +32,10 @@ const makeData = (): AppData => ({
   periods: [makePeriod(true), makePeriod(false)],
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("date input", () => {
   it("adds date separators while the user types digits", () => {
@@ -87,6 +97,58 @@ describe("period creation", () => {
     expect(
       screen.getByRole("textbox", { name: "предыдущий остаток" }),
     ).toHaveProperty("placeholder", "90 000");
+  });
+});
+
+describe("period completion UI", () => {
+  it("offers the next period on salary day", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-04T12:00:00"));
+    render(
+      <Home
+        period={{ ...makePeriod(true), nextSalaryDate: "2026-08-04" }}
+        go={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "создать следующий период" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "добавить расход" })).toBeTruthy();
+  });
+
+  it("freezes an overdue period and replaces expense entry with creation", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-05T12:00:00"));
+    render(
+      <Home
+        period={{ ...makePeriod(true), nextSalaryDate: "2026-08-04" }}
+        go={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "период завершён" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "создать период" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "добавить расход" })).toBeNull();
+  });
+
+  it("uses an in-app confirmation before clearing a period", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T12:00:00"));
+    render(
+      <PeriodScreen
+        data={makeData()}
+        period={makePeriod(true)}
+        save={vi.fn()}
+        go={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "очистить текущий период" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "очистить текущий период?" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "отмена" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "очистить" })).toBeTruthy();
   });
 });
 

@@ -6,6 +6,7 @@ import {
   formatAmount,
   freeMoney,
   normalizeData,
+  periodState,
   spent,
   stillPlanned,
   suggestedPreviousBalance,
@@ -29,6 +30,11 @@ type Page =
   | "history"
   | "backup";
 const storage = new IndexedDbStorage();
+const todayIso = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+};
 const money = (n: number) => <>{formatAmount(n)} ₽</>;
 const dateLabel = (s: string) =>
   new Date(s + "T00:00:00").toLocaleDateString("ru-RU", {
@@ -119,6 +125,7 @@ export function App() {
   };
   if (!data) return <main className="center">загрузка…</main>;
   const current = data.periods.find((p) => p.current);
+  const currentState = current ? periodState(current, todayIso()) : undefined;
   const body =
     page === "create" ? (
       <CreatePeriod
@@ -138,7 +145,7 @@ export function App() {
         }}
         onCancel={() => setPage(current ? "period" : "home")}
       />
-    ) : page === "add" && current ? (
+    ) : page === "add" && current && currentState !== "finished" ? (
       <AddExpense
         data={data}
         period={current}
@@ -201,7 +208,7 @@ export function App() {
   );
 }
 
-function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
+export function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
   if (!period)
     return (
       <section className="empty hero empty-period empty-period-home">
@@ -218,8 +225,19 @@ function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
         </button>
       </section>
     );
+  const state = periodState(period, todayIso());
+  const finished = state === "finished";
   return (
     <>
+      {finished && (
+        <section className="period-finished" aria-label="период завершён">
+          <h2>период завершён</h2>
+          <p>создайте новый период, чтобы продолжить учитывать расходы</p>
+          <button className="primary" onClick={() => go("create")}>
+            создать период
+          </button>
+        </section>
+      )}
       <section className="hero">
         <img
           className="hero-mascot"
@@ -237,9 +255,18 @@ function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
         <span className="money-label">свободные деньги</span>
       </section>
       <Groups p={period} />
-      <button className="primary floating" onClick={() => go("add")}>
-        добавить расход
-      </button>
+      {!finished && (
+        <>
+          <button className="primary floating" onClick={() => go("add")}>
+            добавить расход
+          </button>
+          {state === "salary-day" && (
+            <button className="secondary next-period-cta" onClick={() => go("create")}>
+              создать следующий период
+            </button>
+          )}
+        </>
+      )}
     </>
   );
 }
@@ -771,7 +798,7 @@ function AddExpense({
 type PeriodField =
   "startDate" | "nextSalaryDate" | "income" | "previousBalance";
 
-function PeriodScreen({
+export function PeriodScreen({
   data,
   period,
   save,
@@ -786,6 +813,7 @@ function PeriodScreen({
   const [editValue, setEditValue] = useState("");
   const [editError, setEditError] = useState("");
   const [addingIncome, setAddingIncome] = useState(false);
+  const [clearingPeriod, setClearingPeriod] = useState(false);
   if (!period)
     return (
       <section className="empty empty-period">
@@ -795,6 +823,8 @@ function PeriodScreen({
         </button>
       </section>
     );
+  const state = periodState(period, todayIso());
+  const finished = state === "finished";
   const change = (p: Period) =>
     save(
       { ...data, periods: data.periods.map((x) => (x.id === p.id ? p : x)) },
@@ -846,19 +876,28 @@ function PeriodScreen({
       trailing={
         <>
           {value}{" "}
-          <button
-            className="icon"
-            aria-label={`изменить ${fieldLabels[field]}`}
-            onClick={() => openEdit(field)}
-          >
-            ✎
-          </button>
+          {(!finished || field === "nextSalaryDate") && (
+            <button
+              className="icon"
+              aria-label={`изменить ${fieldLabels[field]}`}
+              onClick={() => openEdit(field)}
+            >
+              ✎
+            </button>
+          )}
         </>
       }
     />
   );
   return (
     <>
+      {finished && (
+        <section className="period-finished compact" aria-label="период завершён">
+          <h2>период завершён</h2>
+          <p>данные сохранены и больше не пересчитываются</p>
+          <p className="muted">если зарплата задержалась, измените её дату ниже</p>
+        </section>
+      )}
       <section className="period-settings">
         <h2 className="section-title">изменить период</h2>
         <div className="card summary">
@@ -872,36 +911,20 @@ function PeriodScreen({
         <h2 className="section-title">скорректировать расходы</h2>
         <Groups
           p={period}
-          editable
-          onChange={change}
+          editable={!finished}
+          onChange={finished ? undefined : change}
           everydayCategories={categoriesFor(data, "everyday")}
         />
       </section>
       <div className="period-actions">
-        <button className="secondary" onClick={() => setAddingIncome(true)}>
-          добавить доход
-        </button>
-        <button className="secondary" onClick={() => go("create")}>
-          создать следующий период
-        </button>
+        {!finished && (
+          <button className="secondary" onClick={() => setAddingIncome(true)}>
+            добавить доход
+          </button>
+        )}
         <button
           className="secondary"
-          onClick={() => {
-            if (
-              confirm(
-                "очистить текущий период? даты, суммы, лимиты и расходы будут удалены",
-              )
-            ) {
-              save(
-                {
-                  ...data,
-                  periods: data.periods.filter((item) => item.id !== period.id),
-                },
-                "текущий период очищен",
-              );
-              go("home");
-            }
-          }}
+          onClick={() => setClearingPeriod(true)}
         >
           очистить текущий период
         </button>
@@ -940,6 +963,32 @@ function PeriodScreen({
             setAddingIncome(false);
           }}
         />
+      )}
+      {clearingPeriod && (
+        <Modal title="очистить текущий период?" onClose={() => setClearingPeriod(false)}>
+          <p className="modal-copy">даты, суммы, лимиты и расходы будут удалены</p>
+          <div className="actions-row">
+            <button className="secondary" onClick={() => setClearingPeriod(false)}>
+              отмена
+            </button>
+            <button
+              className="danger-action"
+              onClick={() => {
+                save(
+                  {
+                    ...data,
+                    periods: data.periods.filter((item) => item.id !== period.id),
+                  },
+                  "текущий период очищен",
+                );
+                setClearingPeriod(false);
+                go("home");
+              }}
+            >
+              очистить
+            </button>
+          </div>
+        </Modal>
       )}
     </>
   );

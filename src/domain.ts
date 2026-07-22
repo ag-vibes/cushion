@@ -195,6 +195,12 @@ export const daysUntil = (date: string) =>
         86400000,
     ),
   );
+export type PeriodState = "active" | "salary-day" | "finished";
+export const periodState = (period: Period, today: string): PeriodState => {
+  if (today < period.nextSalaryDate) return "active";
+  if (today === period.nextSalaryDate) return "salary-day";
+  return "finished";
+};
 export const validBackup = (v: unknown): v is AppData => {
   if (!v || typeof v !== "object") return false;
   const d = v as Partial<AppData>;

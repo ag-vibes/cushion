@@ -10,6 +10,7 @@ import {
   spent,
   stillPlanned,
   suggestedPreviousBalance,
+  periodState,
   validBackup,
   type Period,
 } from "./domain";
@@ -171,5 +172,11 @@ describe("financial calculations", () => {
       periods: [],
     });
     expect(data.categories).toEqual(["еда"]);
+  });
+  it("keeps salary day active and finishes the period the next day", () => {
+    const current = period({ nextSalaryDate: "2026-08-04" });
+    expect(periodState(current, "2026-08-03")).toBe("active");
+    expect(periodState(current, "2026-08-04")).toBe("salary-day");
+    expect(periodState(current, "2026-08-05")).toBe("finished");
   });
 });
