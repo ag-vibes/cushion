@@ -308,23 +308,12 @@ p {
   color: var(--color-primary-text);
   margin-bottom: 10px;
 }
-.floating {
-  position: fixed;
-  left: 50%;
-  width: min(calc(100% - 36px), 484px);
-  transform: translateX(-50%);
-  bottom: calc(88px + env(safe-area-inset-bottom));
-  z-index: 4;
-  box-shadow: 0 8px 20px rgba(143, 187, 124, 0.4);
+.home-actions {
+  display: grid;
+  gap: 8px;
 }
-.next-period-cta {
-  margin-top: -8px;
+.home-actions .secondary {
   margin-bottom: 0;
-}
-@media (display-mode: standalone) {
-  .floating {
-    bottom: calc(120px + env(safe-area-inset-bottom));
-  }
 }
 .period-finished {
   display: grid;

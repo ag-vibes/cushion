@@ -254,19 +254,19 @@ export function Home({ period, go }: { period?: Period; go: (p: Page) => void })
         <h1>{money(freeMoney(period))}</h1>
         <span className="money-label">свободные деньги</span>
       </section>
-      <Groups p={period} />
       {!finished && (
-        <>
-          <button className="primary floating" onClick={() => go("add")}>
+        <div className="home-actions">
+          <button className="primary" onClick={() => go("add")}>
             добавить расход
           </button>
           {state === "salary-day" && (
-            <button className="secondary next-period-cta" onClick={() => go("create")}>
+            <button className="secondary" onClick={() => go("create")}>
               создать следующий период
             </button>
           )}
-        </>
+        </div>
       )}
+      <Groups p={period} />
     </>
   );
 }
