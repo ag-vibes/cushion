@@ -129,6 +129,24 @@ describe("financial calculations", () => {
     expect(defaultCategoryTypes["услуги"]).toEqual(["oneOff"]);
     expect(categoriesFor(emptyData(), "mandatory")).toContain("сплит");
   });
+  it("uses the confirmed initial category order", () => {
+    expect(emptyData().categories).toEqual([
+      "аренда",
+      "еда",
+      "транспорт",
+      "дом и гигиена",
+      "красота",
+      "падел",
+      "покупки",
+      "здоровье",
+      "развлечения",
+      "подписки",
+      "регулярные платежи",
+      "услуги",
+      "сплит",
+      "долг",
+    ]);
+  });
   it("translates previously saved English categories", () => {
     const migrated = normalizeData({
       version: 1,

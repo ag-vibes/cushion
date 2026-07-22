@@ -1,20 +1,20 @@
 export type ExpenseKind = "mandatory" | "everyday" | "oneOff" | "impulse";
 
 export const defaultCategoryTypes: Record<string, ExpenseKind[]> = {
+  аренда: ["mandatory"],
   еда: ["everyday", "impulse"],
   транспорт: ["everyday", "oneOff"],
   "дом и гигиена": ["everyday"],
-  падел: ["everyday"],
   красота: ["mandatory", "oneOff"],
-  здоровье: ["everyday", "oneOff"],
+  падел: ["everyday"],
   покупки: ["everyday", "oneOff", "impulse"],
+  здоровье: ["everyday", "oneOff"],
   развлечения: ["oneOff"],
-  аренда: ["mandatory"],
   подписки: ["mandatory"],
   "регулярные платежи": ["mandatory"],
+  услуги: ["oneOff"],
   сплит: ["mandatory"],
   долг: ["mandatory"],
-  услуги: ["oneOff"],
 };
 export const initialCategories = Object.keys(defaultCategoryTypes);
 

@@ -1087,7 +1087,7 @@ export function Categories({
   return (
     <section>
       <Top title="категории и расходы" back={back} />
-      <h2 className="section-title">категории</h2>
+      <h2 className="section-title">настроить категории</h2>
       <div className="card category-list">
         {order.map((category) => (
           <div
