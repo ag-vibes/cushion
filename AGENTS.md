@@ -14,7 +14,7 @@ These documents are the source of truth.
 1. Do not invent features.
 2. Do not implement roadmap ideas that are outside the MVP.
 3. Do not replace fixed Russian UI terms with synonyms.
-4. Keep category names in English and lowercase.
+4. Keep category names in Russian and lowercase.
 5. Keep all other user-facing interface text in Russian and lowercase.
 6. Follow the number-formatting rule from the product specification.
 7. Expense type determines financial behaviour; category does not.
