@@ -4,7 +4,7 @@ Cushion is a personal financial planning app for the period between one salary a
 
 Its main purpose is to answer one practical question:
 
-> can i afford this purchase before my next salary?
+> can I afford this purchase before my next salary?
 
 The MVP is intentionally focused on planning rather than accounting. It helps the user reserve money for known obligations, plan everyday spending and understand how much money remains available.
 
