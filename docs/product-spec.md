@@ -127,7 +127,7 @@ The user may add, rename, reorder and delete categories. A category may belong t
 
 Deleting a category must not delete existing expenses. A category cannot be deleted while it has an active everyday limit or everyday spending in the current period. Existing expenses in completed periods retain their original category value.
 
-Renaming a category updates the current period, drafts and future operations. Completed periods remain unchanged.
+Renaming a category updates the current period, reusable settings and future operations. Completed periods remain unchanged.
 
 ## 5. Number formatting
 
@@ -245,11 +245,11 @@ Rules:
 - status is informational;
 - a mandatory payment may be edited or deleted during the current period.
 
-#### Mandatory payment drafts
+#### Mandatory expense settings
 
 Reusable mandatory-expense settings are managed in `ещё` → `категории и расходы`.
 
-Each draft contains:
+Each setting contains:
 
 - category;
 - last amount;
@@ -407,6 +407,8 @@ The primary action is placed immediately below the period hero and scrolls with 
 
 The free money value must be the strongest visual element.
 
+Within every expense group, rows follow the shared category order configured in `ещё`; entering or editing amounts must not reorder them. The `предстоит` / `оплачено` status of mandatory and one-off expenses may be toggled directly on `главная`. This is an informational change and must not change free money.
+
 ### 11.2 Добавить расход
 
 Purpose: record a new expense.
@@ -472,15 +474,15 @@ The screen must support:
 
 Category names remain Russian and lowercase.
 
-### 11.7 Mandatory payment drafts
+### 11.7 Mandatory expense settings
 
-Purpose: manage reusable mandatory payment drafts.
+Purpose: manage reusable mandatory-expense settings.
 
 The user may:
 
-- add a draft;
+- add a setting;
 - edit category and amount;
-- delete a draft.
+- delete a setting.
 
 Drafts are suggestions only and are never automatically added to a new period.
 
