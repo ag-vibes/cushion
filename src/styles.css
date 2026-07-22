@@ -321,6 +321,11 @@ p {
   margin-top: -8px;
   margin-bottom: 0;
 }
+@media (display-mode: standalone) {
+  .floating {
+    bottom: calc(120px + env(safe-area-inset-bottom));
+  }
+}
 .period-finished {
   display: grid;
   gap: 10px;
