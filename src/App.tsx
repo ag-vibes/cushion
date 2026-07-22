@@ -917,7 +917,9 @@ export function PeriodScreen({
     setEditValue(
       field === "startDate" || field === "nextSalaryDate"
         ? toRuDate(period[field])
-        : formatInputAmount(String(period[field])),
+        : period[field] === 0
+          ? ""
+          : formatInputAmount(String(period[field])),
     );
   };
   const saveField = (event: FormEvent<HTMLFormElement>) => {
@@ -1018,6 +1020,7 @@ export function PeriodScreen({
               <input
                 autoFocus
                 inputMode="decimal"
+                placeholder="0"
                 value={editValue}
                 onChange={(event) =>
                   setEditValue(formatInputAmount(event.target.value))
@@ -1779,7 +1782,9 @@ function AmountModal({
   close: () => void;
   save: (amount: number) => void;
 }) {
-  const [value, setValue] = useState(formatInputAmount(String(initial)));
+  const [value, setValue] = useState(
+    initial === 0 ? "" : formatInputAmount(String(initial)),
+  );
   const [error, setError] = useState("");
   return (
     <Modal title={title} onClose={close}>
@@ -1795,6 +1800,7 @@ function AmountModal({
         <input
           autoFocus
           inputMode="decimal"
+          placeholder="0"
           value={value}
           onChange={(event) => setValue(formatInputAmount(event.target.value))}
         />

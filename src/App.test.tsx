@@ -304,9 +304,47 @@ describe("period completion UI", () => {
     expect(screen.getByRole("button", { name: "отмена" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "очистить" })).toBeTruthy();
   });
+
+  it("shows zero period amounts as a placeholder when editing", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T12:00:00"));
+    const current = { ...makePeriod(true), income: 0 };
+    render(
+      <PeriodScreen
+        data={{ ...makeData(), periods: [current, makePeriod(false)] }}
+        period={current}
+        save={vi.fn()}
+        go={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "изменить доход" }));
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.value).toBe("");
+    expect(input.placeholder).toBe("0");
+  });
 });
 
 describe("category settings UI", () => {
+  it("shows zero amounts as a placeholder in money dialogs", () => {
+    const data = {
+      ...makeData(),
+      everydayLimits: [],
+      periods: [
+        { ...makePeriod(true), everyday: [] },
+        { ...makePeriod(false), everyday: [] },
+      ],
+    };
+    render(<Categories data={data} save={vi.fn()} back={vi.fn()} />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "изменить лимит для категории еда",
+      }),
+    );
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.value).toBe("");
+    expect(input.placeholder).toBe("0");
+  });
+
   it("keeps reusable limits in settings and applies edits to the current period", () => {
     const save = vi.fn();
     render(<Categories data={makeData()} save={save} back={vi.fn()} />);
