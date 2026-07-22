@@ -187,7 +187,7 @@ The start date defaults to today but remains editable. After saving, the app ope
 
 For a subsequent period, a positive final free-money amount from the previous period is offered as a grey previous-balance suggestion. Zero or a negative amount produces a `0` suggestion. The user may replace it.
 
-Mandatory expenses and one-off expenses are not copied automatically. Everyday limits from the previous period are copied with their spending reset to zero and remain editable on `период`.
+Mandatory expenses and one-off expenses are not copied automatically. Reusable everyday-limit settings are applied to the new period with spending reset to zero.
 
 ### 6.3 Previous balance
 
@@ -247,7 +247,7 @@ Rules:
 
 #### Mandatory payment drafts
 
-When creating a new period, the app shows a draft list based on mandatory payments used previously.
+Reusable mandatory-expense settings are managed in `ещё` → `категории и расходы`.
 
 Each draft contains:
 
@@ -257,9 +257,9 @@ Each draft contains:
 
 The app must not automatically add all previous mandatory payments.
 
-The user selects which drafts belong to the new period and may edit their amounts before confirming.
+When the user chooses a mandatory category in `добавить расход`, its saved amount appears as a grey suggestion. The user may accept or replace it before saving the expense.
 
-This avoids incorrect copying of payments with different recurrence frequencies.
+The setting never creates an actual expense automatically. This avoids incorrect copying of payments with different recurrence frequencies.
 
 ### 7.2 Everyday expenses
 
@@ -285,14 +285,16 @@ Rules:
 - the entered amount increases `spent`;
 - the user must not enter cumulative spending totals;
 - `still planned` updates automatically;
-- the user may edit the limit during the current period;
+- the user may edit the reusable limit in `ещё` → `категории и расходы`;
+- changing a reusable limit immediately updates the current period and is used for future periods;
+- completed periods retain the limit that applied to them and are never rewritten;
 - if `spent` exceeds `limit`, `still planned` becomes negative.
 
-#### Everyday limit drafts
+#### Everyday limit settings
 
-Limits from the previous period are copied into the new period with spending reset to zero. The user may edit them on `период`.
+Everyday limits are reusable budget settings rather than values configured separately for every period. They are managed in `ещё` → `категории и расходы`, applied to the current period immediately and copied into each new period with spending reset to zero. A completed period keeps its own historical limit snapshot.
 
-If an everyday expense is added to a category whose current-period limit is zero or absent, that first expense creates a limit equal to its amount. If a non-zero limit already exists, overspending must not increase it: the remaining amount becomes negative and is shown in the danger colour.
+If an everyday expense is added to a category whose reusable limit is zero or absent, that first expense creates a reusable limit equal to its amount and applies it to the current period. If a non-zero limit already exists, overspending must not increase it: the remaining amount becomes negative and is shown in the danger colour.
 
 ### 7.3 One-off expenses
 
@@ -364,7 +366,7 @@ The UI must update free money immediately after every relevant change.
 receive salary
 → create period
 → view the created period on главная
-→ add expenses or adjust limits when needed
+→ add expenses or adjust reusable limits when needed
 → use the app during the period
 → create the next period
 ```
@@ -428,13 +430,12 @@ Purpose: manage the current financial period.
 
 Must support:
 
-- viewing period dates;
-- viewing income and previous balance;
-- editing current-period values where allowed;
-- adding a mandatory payment;
-- viewing all current-period expense groups.
+- correcting or deleting previously entered mandatory, everyday, one-off and impulse expenses;
+- viewing and editing period dates, income and previous balance where allowed;
+- adding income;
+- clearing the current period after confirmation.
 
-Creating the next period is available from this screen.
+The first section is `скорректировать внесённые расходы`. It contains only actual expense entries, never reusable limit settings. The `изменить период` section follows it.
 
 ### 11.4 Создание периода
 
@@ -448,13 +449,19 @@ Purpose: provide infrequent management actions.
 
 Contains:
 
-- combined category and mandatory-expense settings;
+- combined everyday-limit, mandatory-expense and category settings;
 - period history;
 - backup.
 
-### 11.6 Categories
+### 11.6 Categories and expenses
 
-Purpose: manage the category list.
+Purpose: manage reusable budget settings and the category list.
+
+Sections appear in this order:
+
+1. `настроить повседневные лимиты`;
+2. `настроить обязательные расходы`;
+3. `настроить категории`.
 
 The screen must support:
 
@@ -493,6 +500,10 @@ The screen must support:
 
 - creating a JSON backup file;
 - restoring data from a valid Cushion JSON backup.
+
+After the first backup is created, the screen shows
+`последняя резервная копия: <date>` using the date of the most recently created
+backup file.
 
 The user-facing term is `резервная копия`, not `экспорт`.
 
@@ -548,7 +559,7 @@ The MVP is ready for use when the user can:
 
 1. create a financial period;
 2. use saved mandatory-expense amounts as optional suggestions;
-3. edit copied everyday limits on the current period;
+3. edit reusable everyday limits in `ещё` and see the current period update without changing completed history;
 4. add all four expense types;
 5. see free money update correctly;
 6. mark mandatory and one-off expenses as paid without double subtraction;
