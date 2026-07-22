@@ -11,6 +11,10 @@
   --color-ink-subtle: #9c9188;
   --color-bg: #fbf8f3;
   --color-primary-text: #4b7a3e;
+  --font-row: 14.5px;
+  --font-meta: 12.5px;
+  --font-card-title: 16px;
+  --font-section-title: 22px;
   font-family: Manrope, ui-sans-serif, system-ui, -apple-system, sans-serif;
   color: var(--color-ink);
   background: var(--color-bg);
@@ -60,7 +64,7 @@ h1 {
   margin: 12px 0;
 }
 h2 {
-  font-size: 16px;
+  font-size: var(--font-card-title);
   font-weight: 600;
   margin: 0 0 12px;
 }
@@ -80,7 +84,8 @@ p {
   position: absolute;
   right: -13px;
   bottom: -13px;
-  width: 106px;
+  width: 122px;
+  opacity: 0.82;
   height: auto;
   transform: rotate(5deg);
   pointer-events: none;
@@ -132,6 +137,8 @@ p {
   gap: 12px;
   padding: 11px 0;
   border-bottom: 1px solid rgba(43, 36, 32, 0.07);
+  font-size: var(--font-row);
+  font-weight: 400;
 }
 .row:last-child {
   border: 0;
@@ -143,7 +150,7 @@ p {
 .row small {
   display: block;
   color: var(--color-ink-subtle);
-  font-size: 12.5px;
+  font-size: var(--font-meta);
   margin-top: 3px;
 }
 .everyday-details {
@@ -159,7 +166,7 @@ p {
 }
 .everyday-row > span:first-child {
   color: var(--color-ink-muted);
-  font-size: 14.5px;
+  font-size: var(--font-row);
   font-weight: 500;
 }
 .everyday-row > span:nth-child(2) {
@@ -244,12 +251,18 @@ p {
 .type-option {
   display: flex;
   align-items: center;
-  gap: 9px;
-  min-height: 32px;
+  gap: 10px;
+  min-height: 30px;
+  color: var(--color-ink-muted);
+  font-size: var(--font-row);
+  font-weight: 400;
 }
 .type-option input {
-  width: 20px;
-  height: 20px;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
   accent-color: var(--color-primary-text);
 }
 .primary {
@@ -302,7 +315,7 @@ nav button {
   background: transparent;
   color: var(--color-ink-subtle);
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
 }
 nav button.active {
@@ -446,7 +459,7 @@ select {
   margin-top: 14px;
 }
 .period-settings .row {
-  font-size: 14.5px;
+  font-size: var(--font-row);
   font-weight: 400;
 }
 .period-settings .row > span:last-child {
@@ -455,7 +468,7 @@ select {
 .section-title {
   font-family: Nunito, sans-serif;
   font-weight: 800;
-  font-size: 22px;
+  font-size: var(--font-section-title);
   margin: 0 0 14px;
 }
 .top + .section-title {
@@ -510,7 +523,7 @@ select {
   font-size: 21px;
   margin-bottom: 18px;
 }
-.modal input {
+.modal input:not([type="checkbox"]) {
   width: 100%;
   min-width: 0;
   border: 1px solid rgba(43, 36, 32, 0.14);
@@ -554,6 +567,6 @@ select {
   }
   .hero-mascot {
     right: -18px;
-    width: 88px;
+    width: 102px;
   }
 }

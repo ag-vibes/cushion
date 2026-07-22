@@ -262,7 +262,7 @@ function Groups({
               className="icon"
               aria-label="изменить"
               onClick={() =>
-                editAmount(`изменить: ${e.category}`, e.amount, (n) =>
+                editAmount(e.category, e.amount, (n) =>
                   onChange?.({
                     ...p,
                     [group ?? "impulse"]: (
@@ -343,7 +343,7 @@ function Groups({
                       className="icon"
                       aria-label="изменить"
                       onClick={() =>
-                        editAmount(`изменить: ${e.category}`, e.limit, (n) =>
+                        editAmount(e.category, e.limit, (n) =>
                           onChange?.(
                             p.everyday.some(
                               (item) => item.category === e.category,
@@ -1194,7 +1194,7 @@ function PeriodScreen({
       </div>
       {editField && (
         <Modal
-          title={`изменить: ${fieldLabels[editField]}`}
+          title={fieldLabels[editField]}
           onClose={() => setEditField(undefined)}
         >
           <form className="form" onSubmit={saveField}>
@@ -1370,7 +1370,7 @@ function LegacyCategories({
           ))}
         </fieldset>
         {error && <p className="error">{error}</p>}
-        <button className="secondary">добавить категорию</button>
+        <button className="secondary">добавить</button>
       </form>
     </section>
   );
@@ -1583,7 +1583,7 @@ function Categories({
         })}
       </div>
       {editing && (
-        <Modal title="изменить категорию" onClose={() => setEditing(undefined)}>
+        <Modal title={editing} onClose={() => setEditing(undefined)}>
           <form className="form" onSubmit={saveCategory}>
             <Field label="название">
               <input
@@ -1660,7 +1660,7 @@ function Categories({
       )}
       {draftCategory && (
         <AmountModal
-          title={`изменить: ${draftCategory}`}
+          title={draftCategory}
           initial={
             data.drafts.find((draft) => draft.category === draftCategory)
               ?.amount ?? 0
