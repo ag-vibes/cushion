@@ -501,9 +501,21 @@ The screen must support:
 - creating a JSON backup file;
 - restoring data from a valid Cushion JSON backup.
 
-After the first backup is created, the screen shows
-`последняя резервная копия: <date>` using the date of the most recently created
-backup file.
+Before the first backup is created, the screen shows
+`резервная копия ещё не создавалась`.
+
+After the first backup is created, this text is replaced with
+`последняя резервная копия: <date>`, using the date on which the most recent
+backup file was created.
+
+Every backup action creates a separate JSON snapshot containing all Cushion
+data. Cushion does not overwrite or delete older backup files. The browser lets
+the user choose where to save or move each file, including a folder in iCloud
+Drive. File retention and deletion are managed by the user outside Cushion.
+
+The last-backup date is stored locally and included in the JSON snapshot. It
+records that Cushion created the file; it does not claim that the file was
+successfully synced by an external storage provider.
 
 The user-facing term is `резервная копия`, not `экспорт`.
 
@@ -514,6 +526,11 @@ Before restoring, the app must warn that current local data will be replaced.
 The MVP has no login and stores data locally.
 
 Use IndexedDB rather than localStorage.
+
+IndexedDB is the working data store and remains specific to the current browser,
+device and site origin. The JSON backup is the recovery mechanism if that local
+browser data is lost or cleared. Opening a fresh Cushion installation and
+restoring a valid backup must recreate the saved application data.
 
 All data access must go through a dedicated storage layer.
 
