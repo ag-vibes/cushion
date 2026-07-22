@@ -41,6 +41,7 @@ const dateLabel = (s: string) =>
     day: "numeric",
     month: "long",
   });
+const backupDateLabel = (s: string) => `${dateLabel(s)} ${s.slice(0, 4)}`;
 const num = (v: FormDataEntryValue | null) =>
   Number(
     String(v ?? "")
@@ -166,6 +167,7 @@ export function App() {
     ) : page === "backup" ? (
       <Backup
         data={data}
+        save={update}
         restore={(d) => {
           update(d, "резервная копия восстановлена");
           setPage("more");
@@ -208,7 +210,13 @@ export function App() {
   );
 }
 
-export function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
+export function Home({
+  period,
+  go,
+}: {
+  period?: Period;
+  go: (p: Page) => void;
+}) {
   if (!period)
     return (
       <section className="empty hero empty-period empty-period-home">
@@ -274,12 +282,10 @@ function Groups({
   p,
   editable,
   onChange,
-  everydayCategories,
 }: {
   p: Period;
   editable?: boolean;
   onChange?: (p: Period) => void;
-  everydayCategories?: string[];
 }) {
   const [amountEdit, setAmountEdit] = useState<{
     title: string;
@@ -324,7 +330,7 @@ function Groups({
           <>
             <button
               className="icon"
-              aria-label="изменить"
+              aria-label={`изменить расход ${e.category}`}
               onClick={() =>
                 editAmount(e.category, e.amount, (n) =>
                   onChange?.({
@@ -340,7 +346,7 @@ function Groups({
             </button>
             <button
               className="icon"
-              aria-label="удалить"
+              aria-label={`удалить расход ${e.category}`}
               onClick={() =>
                 onChange?.({
                   ...p,
@@ -357,18 +363,57 @@ function Groups({
       </span>
     </div>
   );
-  const everydayItems =
-    editable && everydayCategories
-      ? everydayCategories.map(
-          (category) =>
-            p.everyday.find((item) => item.category === category) ?? {
-              id: `empty-${category}`,
-              category,
-              limit: 0,
-              expenses: [],
-            },
-        )
-      : p.everyday;
+  const everydayExpenses = p.everyday.flatMap((item) =>
+    item.expenses.map((expense) => ({ ...expense, category: item.category })),
+  );
+  const everydayExpenseRow = (expense: {
+    id: string;
+    category: string;
+    amount: number;
+  }) => (
+    <div className="row" key={expense.id}>
+      <span>{expense.category}</span>
+      <span>
+        {money(expense.amount)}{" "}
+        <button
+          className="icon"
+          aria-label={`изменить расход ${expense.category}`}
+          onClick={() =>
+            editAmount(expense.category, expense.amount, (amount) =>
+              onChange?.({
+                ...p,
+                everyday: p.everyday.map((item) => ({
+                  ...item,
+                  expenses: item.expenses.map((entry) =>
+                    entry.id === expense.id ? { ...entry, amount } : entry,
+                  ),
+                })),
+              }),
+            )
+          }
+        >
+          ✎
+        </button>
+        <button
+          className="icon"
+          aria-label={`удалить расход ${expense.category}`}
+          onClick={() =>
+            onChange?.({
+              ...p,
+              everyday: p.everyday.map((item) => ({
+                ...item,
+                expenses: item.expenses.filter(
+                  (entry) => entry.id !== expense.id,
+                ),
+              })),
+            })
+          }
+        >
+          ×
+        </button>
+      </span>
+    </div>
+  );
   return (
     <>
       <div className="groups">
@@ -380,81 +425,42 @@ function Groups({
         </Group>
         <section className="card">
           <h2>повседневные расходы</h2>
-          {everydayItems.length === 0 && (
+          {editable ? (
+            everydayExpenses.length ? (
+              everydayExpenses.map(everydayExpenseRow)
+            ) : (
+              <p className="muted">повседневных расходов не было</p>
+            )
+          ) : p.everyday.length === 0 ? (
             <p className="muted">повседневные лимиты не заданы</p>
-          )}
-          {everydayItems.map((e) => {
-            const usage = e.limit > 0 ? (spent(e) / e.limit) * 100 : 0;
-            const progressTone =
-              usage >= 90 ? "danger" : usage >= 50 ? "warning" : "safe";
-            const remaining = stillPlanned(e);
-            return (
-              <div
-                className={`row everyday-row${editable ? " editable" : ""}`}
-                key={e.id}
-              >
-                <span>
-                  {e.category}
-                  {!editable && (
+          ) : null}
+          {!editable &&
+            p.everyday.map((e) => {
+              const usage = e.limit > 0 ? (spent(e) / e.limit) * 100 : 0;
+              const progressTone =
+                usage >= 90 ? "danger" : usage >= 50 ? "warning" : "safe";
+              const remaining = stillPlanned(e);
+              return (
+                <div className="row everyday-row" key={e.id}>
+                  <span>
+                    {e.category}
                     <small className="everyday-details">
                       <span>потрачено {formatAmount(spent(e))} ₽</span>
                       <span>запланировано {formatAmount(e.limit)} ₽</span>
                     </small>
-                  )}
-                </span>
-                <span className={!editable && remaining < 0 ? "negative" : ""}>
-                  {money(editable ? e.limit : remaining)}{" "}
-                  {editable && (
-                    <>
-                      <button
-                        className="icon"
-                        aria-label="изменить"
-                        onClick={() =>
-                          editAmount(e.category, e.limit, (n) =>
-                            onChange?.(
-                              p.everyday.some(
-                                (item) => item.category === e.category,
-                              )
-                                ? {
-                                    ...p,
-                                    everyday: p.everyday.map((x) =>
-                                      x.category === e.category
-                                        ? { ...x, limit: n }
-                                        : x,
-                                    ),
-                                  }
-                                : {
-                                    ...p,
-                                    everyday: [
-                                      ...p.everyday,
-                                      {
-                                        id: uid(),
-                                        category: e.category,
-                                        limit: n,
-                                        expenses: [],
-                                      },
-                                    ],
-                                  },
-                            ),
-                          )
-                        }
-                      >
-                        ✎
-                      </button>
-                    </>
-                  )}
-                </span>
-                {!editable && (
+                  </span>
+                  <span className={remaining < 0 ? "negative" : ""}>
+                    {money(remaining)}
+                  </span>
                   <span className="category-progress" aria-hidden="true">
                     <i
                       className={progressTone}
                       style={{ width: `${Math.min(Math.max(usage, 0), 100)}%` }}
                     />
                   </span>
-                )}
-              </div>
-            );
-          })}
+                </div>
+              );
+            })}
         </section>
         <Group title="разовые расходы" empty="разовых расходов не было">
           {p.oneOff.map((e) => row(e, "oneOff"))}
@@ -573,12 +579,11 @@ export function CreatePeriod({
       current: true,
       createdAt: new Date().toISOString(),
       mandatory: [],
-      everyday:
-        last?.everyday.map((item) => ({
-          ...item,
-          id: uid(),
-          expenses: [],
-        })) ?? [],
+      everyday: data.everydayLimits.map((item) => ({
+        ...item,
+        id: uid(),
+        expenses: [],
+      })),
       oneOff: [],
       impulse: [],
     });
@@ -681,16 +686,38 @@ function AddExpense({
     }
     const category = String(f.get("category"));
     let p = period;
+    let everydayLimits = data.everydayLimits;
     if (type === "everyday") {
+      const savedLimit = data.everydayLimits.find(
+        (item) => item.category === category,
+      );
+      const baseEveryday = p.everyday.some((item) => item.category === category)
+        ? p.everyday
+        : [
+            ...p.everyday,
+            {
+              id: uid(),
+              category,
+              limit: savedLimit?.limit ?? 0,
+              expenses: [],
+            },
+          ];
       p = {
         ...p,
         everyday: addEverydayExpense(
-          p.everyday,
+          baseEveryday,
           category,
           { id: uid(), amount },
           uid(),
         ),
       };
+      if (!savedLimit || savedLimit.limit === 0) {
+        everydayLimits = savedLimit
+          ? data.everydayLimits.map((item) =>
+              item.id === savedLimit.id ? { ...item, limit: amount } : item,
+            )
+          : [...data.everydayLimits, { id: uid(), category, limit: amount }];
+      }
     } else {
       const date = type === "oneOff" ? fromRuDate(expenseDate) : undefined;
       if (type === "oneOff" && expenseDate && !date) {
@@ -716,7 +743,11 @@ function AddExpense({
       };
     }
     save(
-      { ...data, periods: data.periods.map((x) => (x.id === p.id ? p : x)) },
+      {
+        ...data,
+        everydayLimits,
+        periods: data.periods.map((x) => (x.id === p.id ? p : x)),
+      },
       "расход добавлен",
     );
     done();
@@ -892,12 +923,25 @@ export function PeriodScreen({
   return (
     <>
       {finished && (
-        <section className="period-finished compact" aria-label="период завершён">
+        <section
+          className="period-finished compact"
+          aria-label="период завершён"
+        >
           <h2>период завершён</h2>
           <p>данные сохранены и больше не пересчитываются</p>
-          <p className="muted">если зарплата задержалась, измените её дату ниже</p>
+          <p className="muted">
+            если зарплата задержалась, измените её дату ниже
+          </p>
         </section>
       )}
+      <section className="expense-settings">
+        <h2 className="section-title">скорректировать внесённые расходы</h2>
+        <Groups
+          p={period}
+          editable={!finished}
+          onChange={finished ? undefined : change}
+        />
+      </section>
       <section className="period-settings">
         <h2 className="section-title">изменить период</h2>
         <div className="card summary">
@@ -907,25 +951,13 @@ export function PeriodScreen({
           {settingRow("previousBalance", money(period.previousBalance))}
         </div>
       </section>
-      <section className="expense-settings">
-        <h2 className="section-title">скорректировать расходы</h2>
-        <Groups
-          p={period}
-          editable={!finished}
-          onChange={finished ? undefined : change}
-          everydayCategories={categoriesFor(data, "everyday")}
-        />
-      </section>
       <div className="period-actions">
         {!finished && (
           <button className="secondary" onClick={() => setAddingIncome(true)}>
             добавить доход
           </button>
         )}
-        <button
-          className="secondary"
-          onClick={() => setClearingPeriod(true)}
-        >
+        <button className="secondary" onClick={() => setClearingPeriod(true)}>
           очистить текущий период
         </button>
       </div>
@@ -965,10 +997,16 @@ export function PeriodScreen({
         />
       )}
       {clearingPeriod && (
-        <Modal title="очистить текущий период?" onClose={() => setClearingPeriod(false)}>
-          <p className="modal-copy">даты, суммы, лимиты и расходы будут удалены</p>
+        <Modal
+          title="очистить текущий период?"
+          onClose={() => setClearingPeriod(false)}
+        >
+          <p className="modal-copy">даты, суммы и расходы будут удалены</p>
           <div className="actions-row">
-            <button className="secondary" onClick={() => setClearingPeriod(false)}>
+            <button
+              className="secondary"
+              onClick={() => setClearingPeriod(false)}
+            >
               отмена
             </button>
             <button
@@ -977,7 +1015,9 @@ export function PeriodScreen({
                 save(
                   {
                     ...data,
-                    periods: data.periods.filter((item) => item.id !== period.id),
+                    periods: data.periods.filter(
+                      (item) => item.id !== period.id,
+                    ),
                   },
                   "текущий период очищен",
                 );
@@ -1036,6 +1076,7 @@ export function Categories({
   const [editName, setEditName] = useState("");
   const [editTypes, setEditTypes] = useState<ExpenseKind[]>([]);
   const [editError, setEditError] = useState("");
+  const [limitCategory, setLimitCategory] = useState<string>();
   const [draftCategory, setDraftCategory] = useState<string>();
   const [addError, setAddError] = useState("");
   const [adding, setAdding] = useState(false);
@@ -1077,19 +1118,45 @@ export function Categories({
             .filter(([category]) => category !== editing)
             .concat([[name, editTypes]]),
         ),
-        drafts: data.drafts.map((draft) =>
-          draft.category === editing ? { ...draft, category: name } : draft,
-        ),
+        drafts: data.drafts
+          .filter(
+            (draft) =>
+              draft.category !== editing || editTypes.includes("mandatory"),
+          )
+          .map((draft) =>
+            draft.category === editing ? { ...draft, category: name } : draft,
+          ),
+        everydayLimits: data.everydayLimits
+          .filter(
+            (limit) =>
+              limit.category !== editing || editTypes.includes("everyday"),
+          )
+          .map((limit) =>
+            limit.category === editing ? { ...limit, category: name } : limit,
+          ),
         periods: data.periods.map((period) =>
           period.current
             ? {
                 ...period,
                 mandatory: period.mandatory.map(renameExpense),
-                everyday: period.everyday.map((item) =>
-                  item.category === editing
-                    ? { ...item, category: name }
-                    : item,
-                ),
+                everyday: period.everyday
+                  .filter(
+                    (item) =>
+                      item.category !== editing ||
+                      editTypes.includes("everyday") ||
+                      item.expenses.length > 0,
+                  )
+                  .map((item) =>
+                    item.category === editing
+                      ? {
+                          ...item,
+                          category: name,
+                          limit: editTypes.includes("everyday")
+                            ? item.limit
+                            : spent(item),
+                        }
+                      : item,
+                  ),
                 oneOff: period.oneOff.map(renameExpense),
                 impulse: period.impulse.map(renameExpense),
               }
@@ -1133,10 +1200,63 @@ export function Categories({
     setOrder(next);
   };
   const mandatoryCategories = categoriesFor(data, "mandatory");
+  const everydayCategories = categoriesFor(data, "everyday");
   return (
     <section>
       <Top title="категории и расходы" back={back} />
-      <h2 className="section-title">настроить категории</h2>
+      <h2 className="section-title">настроить повседневные лимиты</h2>
+      <div className="card">
+        {everydayCategories.map((category) => {
+          const setting = data.everydayLimits.find(
+            (item) => item.category === category,
+          );
+          return (
+            <SettingsRow
+              key={category}
+              label={category}
+              trailing={
+                <>
+                  {money(setting?.limit ?? 0)}{" "}
+                  <button
+                    className="icon"
+                    aria-label={`изменить лимит для категории ${category}`}
+                    onClick={() => setLimitCategory(category)}
+                  >
+                    ✎
+                  </button>
+                </>
+              }
+            />
+          );
+        })}
+      </div>
+      <h2 className="section-title settings-subtitle">
+        настроить обязательные расходы
+      </h2>
+      <div className="card">
+        {mandatoryCategories.map((category) => {
+          const draft = data.drafts.find((item) => item.category === category);
+          return (
+            <SettingsRow
+              key={category}
+              label={category}
+              trailing={
+                <>
+                  {money(draft?.amount ?? 0)}{" "}
+                  <button
+                    className="icon"
+                    aria-label={`изменить сумму для категории ${category}`}
+                    onClick={() => setDraftCategory(category)}
+                  >
+                    ✎
+                  </button>
+                </>
+              }
+            />
+          );
+        })}
+      </div>
+      <h2 className="section-title settings-subtitle">настроить категории</h2>
       <div className="card category-list">
         {order.map((category) => (
           <div
@@ -1190,14 +1310,16 @@ export function Categories({
                 className="icon"
                 aria-label={`удалить категорию ${category}`}
                 onClick={() => {
-                  const active = data.periods
+                  const hasLimit = data.everydayLimits.some(
+                    (item) => item.category === category && item.limit > 0,
+                  );
+                  const hasCurrentExpense = data.periods
                     .find((period) => period.current)
-                    ?.everyday.find(
+                    ?.everyday.some(
                       (item) =>
-                        item.category === category &&
-                        (item.limit !== 0 || item.expenses.length > 0),
+                        item.category === category && item.expenses.length > 0,
                     );
-                  if (active) {
+                  if (hasLimit || hasCurrentExpense) {
                     save(
                       data,
                       "нельзя удалить категорию, пока у неё есть активный лимит",
@@ -1216,32 +1338,6 @@ export function Categories({
       <button className="secondary" onClick={() => setAdding(true)}>
         добавить категорию
       </button>
-      <h2 className="section-title settings-subtitle">
-        настроить обязательные расходы
-      </h2>
-      <div className="card">
-        {mandatoryCategories.map((category) => {
-          const draft = data.drafts.find((item) => item.category === category);
-          return (
-            <SettingsRow
-              key={category}
-              label={category}
-              trailing={
-                <>
-                  {money(draft?.amount ?? 0)}{" "}
-                  <button
-                    className="icon"
-                    aria-label={`изменить сумму для категории ${category}`}
-                    onClick={() => setDraftCategory(category)}
-                  >
-                    ✎
-                  </button>
-                </>
-              }
-            />
-          );
-        })}
-      </div>
       {editing && (
         <Modal title={editing} onClose={() => setEditing(undefined)}>
           <form className="form" onSubmit={saveCategory}>
@@ -1325,6 +1421,9 @@ export function Categories({
                     drafts: data.drafts.filter(
                       (draft) => draft.category !== deleting,
                     ),
+                    everydayLimits: data.everydayLimits.filter(
+                      (limit) => limit.category !== deleting,
+                    ),
                   },
                   "категория удалена",
                 );
@@ -1335,6 +1434,77 @@ export function Categories({
             </button>
           </div>
         </Modal>
+      )}
+      {limitCategory && (
+        <AmountModal
+          title={limitCategory}
+          initial={
+            data.everydayLimits.find(
+              (limit) => limit.category === limitCategory,
+            )?.limit ?? 0
+          }
+          close={() => setLimitCategory(undefined)}
+          save={(limit) => {
+            const existing = data.everydayLimits.find(
+              (item) => item.category === limitCategory,
+            );
+            const everydayLimits =
+              limit === 0
+                ? data.everydayLimits.filter(
+                    (item) => item.category !== limitCategory,
+                  )
+                : existing
+                  ? data.everydayLimits.map((item) =>
+                      item.id === existing.id ? { ...item, limit } : item,
+                    )
+                  : [
+                      ...data.everydayLimits,
+                      { id: uid(), category: limitCategory, limit },
+                    ];
+            save(
+              {
+                ...data,
+                everydayLimits,
+                periods: data.periods.map((period) => {
+                  if (!period.current) return period;
+                  const current = period.everyday.find(
+                    (item) => item.category === limitCategory,
+                  );
+                  if (current)
+                    return {
+                      ...period,
+                      everyday:
+                        limit === 0 && current.expenses.length === 0
+                          ? period.everyday.filter(
+                              (item) => item.id !== current.id,
+                            )
+                          : period.everyday.map((item) =>
+                              item.id === current.id
+                                ? { ...item, limit }
+                                : item,
+                            ),
+                    };
+                  return limit > 0
+                    ? {
+                        ...period,
+                        everyday: [
+                          ...period.everyday,
+                          {
+                            id: uid(),
+                            category: limitCategory,
+                            limit,
+                            expenses: [],
+                          },
+                        ],
+                      }
+                    : period;
+                }),
+              },
+              "повседневный лимит сохранён",
+            );
+            setLimitCategory(undefined);
+          }}
+        />
       )}
       {draftCategory && (
         <AmountModal
@@ -1412,24 +1582,31 @@ function History({ periods, back }: { periods: Period[]; back: () => void }) {
     </section>
   );
 }
-function Backup({
+export function Backup({
   data,
+  save,
   restore,
   back,
 }: {
   data: AppData;
+  save: (d: AppData, message?: string) => void;
   restore: (d: AppData) => void;
   back: () => void;
 }) {
   const [error, setError] = useState("");
   const download = () => {
+    const lastBackupDate = todayIso();
+    const backup = { ...data, lastBackupDate };
     const a = document.createElement("a");
     a.href = URL.createObjectURL(
-      new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+      new Blob([JSON.stringify(backup, null, 2)], {
+        type: "application/json",
+      }),
     );
-    a.download = `cushion-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `cushion-${lastBackupDate}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
+    save(backup, "резервная копия создана");
   };
   const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1454,6 +1631,11 @@ function Backup({
         <button className="secondary" onClick={download}>
           создать резервную копию
         </button>
+        {data.lastBackupDate && (
+          <p className="muted">
+            последняя резервная копия: {backupDateLabel(data.lastBackupDate)}
+          </p>
+        )}
       </div>
       <div className="card">
         <h2>восстановить данные</h2>

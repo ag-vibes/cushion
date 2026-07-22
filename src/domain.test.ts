@@ -162,6 +162,9 @@ describe("financial calculations", () => {
     expect(migrated.categories).toContain("еда");
     expect(migrated.drafts[0].category).toBe("сплит");
     expect(migrated.periods[0].everyday[0].category).toBe("еда");
+    expect(migrated.everydayLimits).toEqual([
+      { id: "e", category: "еда", limit: 1000 },
+    ]);
   });
   it("does not restore a category that the user deleted", () => {
     const data = normalizeData({

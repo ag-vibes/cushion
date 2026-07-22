@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   Categories,
+  Backup,
   CreatePeriod,
   Home,
   PeriodScreen,
@@ -28,6 +29,7 @@ const makeData = (): AppData => ({
   version: 1,
   categories: ["еда"],
   categoryTypes: { еда: ["everyday"] },
+  everydayLimits: [{ id: "setting", category: "еда", limit: 10000 }],
   drafts: [],
   periods: [makePeriod(true), makePeriod(false)],
 });
@@ -46,6 +48,41 @@ describe("date input", () => {
   it("accepts only real calendar dates", () => {
     expect(fromRuDate("29.02.2024")).toBe("2024-02-29");
     expect(fromRuDate("31.02.2024")).toBe("");
+  });
+});
+
+describe("backup", () => {
+  it("shows and updates the last backup date", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T12:00:00"));
+    const save = vi.fn();
+    const createObjectURL = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:backup");
+    const revokeObjectURL = vi
+      .spyOn(URL, "revokeObjectURL")
+      .mockImplementation(() => undefined);
+    render(
+      <Backup
+        data={{ ...makeData(), lastBackupDate: "2026-07-02" }}
+        save={save}
+        restore={vi.fn()}
+        back={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("последняя резервная копия: 2 июля 2026"),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "создать резервную копию" }),
+    );
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ lastBackupDate: "2026-07-22" }),
+      "резервная копия создана",
+    );
+    createObjectURL.mockRestore();
+    revokeObjectURL.mockRestore();
   });
 });
 
@@ -82,6 +119,7 @@ describe("period creation", () => {
       mandatory: [],
       oneOff: [],
     });
+    expect(onSave.mock.calls[0][0].everyday).toEqual([]);
   });
 
   it("separates received income and previous balance in later periods", () => {
@@ -101,6 +139,46 @@ describe("period creation", () => {
 });
 
 describe("period completion UI", () => {
+  it("edits actual everyday expenses instead of limits on the period screen", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T12:00:00"));
+    const current = {
+      ...makePeriod(true),
+      everyday: [
+        {
+          id: "limit",
+          category: "еда",
+          limit: 10000,
+          expenses: [{ id: "expense", amount: 2500 }],
+        },
+      ],
+    };
+    render(
+      <PeriodScreen
+        data={{ ...makeData(), periods: [current, makePeriod(false)] }}
+        period={current}
+        save={vi.fn()}
+        go={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "скорректировать внесённые расходы",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "изменить расход еда" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "удалить расход еда" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", {
+        name: "изменить лимит для категории еда",
+      }),
+    ).toBeNull();
+  });
+
   it("offers the next period on salary day", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-04T12:00:00"));
@@ -113,7 +191,9 @@ describe("period completion UI", () => {
     expect(
       screen.getByRole("button", { name: "создать следующий период" }),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "добавить расход" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "добавить расход" }),
+    ).toBeTruthy();
   });
 
   it("freezes an overdue period and replaces expense entry with creation", () => {
@@ -125,9 +205,13 @@ describe("period completion UI", () => {
         go={vi.fn()}
       />,
     );
-    expect(screen.getByRole("heading", { name: "период завершён" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "период завершён" }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "создать период" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "добавить расход" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "добавить расход" }),
+    ).toBeNull();
   });
 
   it("uses an in-app confirmation before clearing a period", () => {
@@ -153,6 +237,44 @@ describe("period completion UI", () => {
 });
 
 describe("category settings UI", () => {
+  it("keeps reusable limits in settings and applies edits to the current period", () => {
+    const save = vi.fn();
+    render(<Categories data={makeData()} save={save} back={vi.fn()} />);
+    const limitHeading = screen.getByRole("heading", {
+      name: "настроить повседневные лимиты",
+    });
+    const mandatoryHeading = screen.getByRole("heading", {
+      name: "настроить обязательные расходы",
+    });
+    const categoryHeading = screen.getByRole("heading", {
+      name: "настроить категории",
+    });
+    expect(
+      limitHeading.compareDocumentPosition(mandatoryHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      mandatoryHeading.compareDocumentPosition(categoryHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "изменить лимит для категории еда",
+      }),
+    );
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "12000" } });
+    fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
+    const saved = save.mock.calls[0][0] as AppData;
+    expect(saved.everydayLimits[0].limit).toBe(12000);
+    expect(
+      saved.periods.find((period) => period.current)?.everyday[0].limit,
+    ).toBe(12000);
+    expect(
+      saved.periods.find((period) => !period.current)?.everyday[0].limit,
+    ).toBe(10000);
+  });
+
   it("opens a compact add-category form with a short submit label", () => {
     render(<Categories data={makeData()} save={vi.fn()} back={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "добавить категорию" }));
@@ -203,5 +325,6 @@ describe("category settings UI", () => {
     expect(
       saved.periods.find((period) => !period.current)?.everyday[0].category,
     ).toBe("еда");
+    expect(saved.everydayLimits[0].category).toBe("продукты");
   });
 });

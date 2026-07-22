@@ -69,10 +69,17 @@ export type Draft = {
   amount: number;
   lastPaymentDate?: string;
 };
+export type EverydayLimitSetting = {
+  id: string;
+  category: string;
+  limit: number;
+};
 export type AppData = {
   version: 1;
+  lastBackupDate?: string;
   categories: string[];
   categoryTypes: Record<string, ExpenseKind[]>;
+  everydayLimits: EverydayLimitSetting[];
   drafts: Draft[];
   periods: Period[];
 };
@@ -80,6 +87,7 @@ export const emptyData = (): AppData => ({
   version: 1,
   categories: [...initialCategories],
   categoryTypes: structuredClone(defaultCategoryTypes),
+  everydayLimits: [],
   drafts: [],
   periods: [],
 });
@@ -113,24 +121,41 @@ export const normalizeData = (raw: unknown): AppData => {
     ...item,
     category: translateCategory(item.category),
   });
+  const periods = (source.periods ?? []).map((period) => ({
+    ...period,
+    mandatory: period.mandatory.map(expense),
+    everyday: period.everyday.map((item) => ({
+      ...item,
+      category: translateCategory(item.category),
+    })),
+    oneOff: period.oneOff.map(expense),
+    impulse: period.impulse.map(expense),
+  }));
+  const legacyLimitSource =
+    periods.find((period) => period.current)?.everyday ??
+    periods[periods.length - 1]?.everyday ??
+    [];
+  const everydayLimits = Array.isArray(source.everydayLimits)
+    ? source.everydayLimits.map((item) => ({
+        ...item,
+        category: translateCategory(item.category),
+      }))
+    : legacyLimitSource
+        .filter((item) => item.limit > 0)
+        .map(({ id, category, limit }) => ({ id, category, limit }));
   return {
     version: 1,
+    ...(typeof source.lastBackupDate === "string"
+      ? { lastBackupDate: source.lastBackupDate }
+      : {}),
     categories,
     categoryTypes,
+    everydayLimits,
     drafts: (source.drafts ?? []).map((item) => ({
       ...item,
       category: translateCategory(item.category),
     })),
-    periods: (source.periods ?? []).map((period) => ({
-      ...period,
-      mandatory: period.mandatory.map(expense),
-      everyday: period.everyday.map((item) => ({
-        ...item,
-        category: translateCategory(item.category),
-      })),
-      oneOff: period.oneOff.map(expense),
-      impulse: period.impulse.map(expense),
-    })),
+    periods,
   };
 };
 
