@@ -325,67 +325,70 @@ function Groups({
               usage >= 90 ? "danger" : usage >= 50 ? "warning" : "safe";
             const remaining = stillPlanned(e);
             return (
-            <div className={`row everyday-row${editable ? " editable" : ""}`} key={e.id}>
-              <span>
-                {e.category}
-                {!editable && (
-                  <small className="everyday-details">
-                    <span>потрачено {formatAmount(spent(e))} ₽</span>
-                    <span>запланировано {formatAmount(e.limit)} ₽</span>
-                  </small>
-                )}
-              </span>
-              <span className={!editable && remaining < 0 ? "negative" : ""}>
-                {money(editable ? e.limit : remaining)}{" "}
-                {editable && (
-                  <>
-                    <button
-                      className="icon"
-                      aria-label="изменить"
-                      onClick={() =>
-                        editAmount(e.category, e.limit, (n) =>
-                          onChange?.(
-                            p.everyday.some(
-                              (item) => item.category === e.category,
-                            )
-                              ? {
-                                  ...p,
-                                  everyday: p.everyday.map((x) =>
-                                    x.category === e.category
-                                      ? { ...x, limit: n }
-                                      : x,
-                                  ),
-                                }
-                              : {
-                                  ...p,
-                                  everyday: [
-                                    ...p.everyday,
-                                    {
-                                      id: uid(),
-                                      category: e.category,
-                                      limit: n,
-                                      expenses: [],
-                                    },
-                                  ],
-                                },
-                          ),
-                        )
-                      }
-                    >
-                      ✎
-                    </button>
-                  </>
-                )}
-              </span>
-              {!editable && (
-                <span className="category-progress" aria-hidden="true">
-                  <i
-                    className={progressTone}
-                    style={{ width: `${Math.min(Math.max(usage, 0), 100)}%` }}
-                  />
+              <div
+                className={`row everyday-row${editable ? " editable" : ""}`}
+                key={e.id}
+              >
+                <span>
+                  {e.category}
+                  {!editable && (
+                    <small className="everyday-details">
+                      <span>потрачено {formatAmount(spent(e))} ₽</span>
+                      <span>запланировано {formatAmount(e.limit)} ₽</span>
+                    </small>
+                  )}
                 </span>
-              )}
-            </div>
+                <span className={!editable && remaining < 0 ? "negative" : ""}>
+                  {money(editable ? e.limit : remaining)}{" "}
+                  {editable && (
+                    <>
+                      <button
+                        className="icon"
+                        aria-label="изменить"
+                        onClick={() =>
+                          editAmount(e.category, e.limit, (n) =>
+                            onChange?.(
+                              p.everyday.some(
+                                (item) => item.category === e.category,
+                              )
+                                ? {
+                                    ...p,
+                                    everyday: p.everyday.map((x) =>
+                                      x.category === e.category
+                                        ? { ...x, limit: n }
+                                        : x,
+                                    ),
+                                  }
+                                : {
+                                    ...p,
+                                    everyday: [
+                                      ...p.everyday,
+                                      {
+                                        id: uid(),
+                                        category: e.category,
+                                        limit: n,
+                                        expenses: [],
+                                      },
+                                    ],
+                                  },
+                            ),
+                          )
+                        }
+                      >
+                        ✎
+                      </button>
+                    </>
+                  )}
+                </span>
+                {!editable && (
+                  <span className="category-progress" aria-hidden="true">
+                    <i
+                      className={progressTone}
+                      style={{ width: `${Math.min(Math.max(usage, 0), 100)}%` }}
+                    />
+                  </span>
+                )}
+              </div>
             );
           })}
         </section>
@@ -431,6 +434,26 @@ function Group({
         children
       )}
     </section>
+  );
+}
+
+export function SettingsRow({
+  label,
+  meta,
+  trailing,
+}: {
+  label: React.ReactNode;
+  meta?: React.ReactNode;
+  trailing: React.ReactNode;
+}) {
+  return (
+    <div className="row settings-row">
+      <span>
+        {label}
+        {meta && <small>{meta}</small>}
+      </span>
+      <span>{trailing}</span>
+    </div>
   );
 }
 
@@ -862,201 +885,6 @@ function AddExpense({
   );
 }
 
-function LegacyPeriodScreen({
-  data,
-  period,
-  save,
-  go,
-}: {
-  data: AppData;
-  period?: Period;
-  save: (d: AppData, m?: string) => void;
-  go: (p: Page) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [editError, setEditError] = useState("");
-  const [edit, setEdit] = useState({
-    startDate: period ? toRuDate(period.startDate) : "",
-    nextSalaryDate: period ? toRuDate(period.nextSalaryDate) : "",
-    income: period ? formatInputAmount(String(period.income)) : "",
-    previousBalance: period
-      ? formatInputAmount(String(period.previousBalance))
-      : "",
-  });
-  if (!period)
-    return (
-      <section className="empty">
-        <h1>нет текущего периода</h1>
-        <button className="primary" onClick={() => go("create")}>
-          создать период
-        </button>
-      </section>
-    );
-  const change = (p: Period) =>
-    save(
-      { ...data, periods: data.periods.map((x) => (x.id === p.id ? p : x)) },
-      "изменения сохранены",
-    );
-  const startEditing = () => {
-    setEdit({
-      startDate: toRuDate(period.startDate),
-      nextSalaryDate: toRuDate(period.nextSalaryDate),
-      income: formatInputAmount(String(period.income)),
-      previousBalance: formatInputAmount(String(period.previousBalance)),
-    });
-    setEditError("");
-    setEditing(true);
-  };
-  const savePeriod = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const startDate = fromRuDate(edit.startDate);
-    const nextSalaryDate = fromRuDate(edit.nextSalaryDate);
-    const income = num(edit.income);
-    const previousBalance = num(edit.previousBalance);
-    if (!startDate || !nextSalaryDate || nextSalaryDate <= startDate) {
-      setEditError(
-        "введите даты в формате дд.мм.гггг; следующая зарплата должна быть позже даты начала",
-      );
-      return;
-    }
-    if (!validateAmount(income) || !validateAmount(previousBalance, true)) {
-      setEditError("проверьте введённые суммы");
-      return;
-    }
-    change({ ...period, startDate, nextSalaryDate, income, previousBalance });
-    setEditing(false);
-  };
-  return (
-    <>
-      <section className="card summary">
-        <h1>период</h1>
-        {editing ? (
-          <form className="form" onSubmit={savePeriod}>
-            <Field label="дата начала">
-              <input
-                inputMode="numeric"
-                placeholder="дд.мм.гггг"
-                value={edit.startDate}
-                onChange={(e) =>
-                  setEdit({ ...edit, startDate: e.target.value })
-                }
-              />
-            </Field>
-            <Field label="дата следующей зарплаты">
-              <input
-                inputMode="numeric"
-                placeholder="дд.мм.гггг"
-                value={edit.nextSalaryDate}
-                onChange={(e) =>
-                  setEdit({ ...edit, nextSalaryDate: e.target.value })
-                }
-              />
-            </Field>
-            <Field label="доход">
-              <input
-                inputMode="decimal"
-                value={edit.income}
-                onChange={(e) =>
-                  setEdit({
-                    ...edit,
-                    income: formatInputAmount(e.target.value),
-                  })
-                }
-              />
-            </Field>
-            <Field label="предыдущий остаток">
-              <input
-                inputMode="decimal"
-                value={edit.previousBalance}
-                onChange={(e) =>
-                  setEdit({
-                    ...edit,
-                    previousBalance: formatInputAmount(e.target.value),
-                  })
-                }
-              />
-            </Field>
-            {editError && <p className="error">{editError}</p>}
-            <div className="actions-row">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setEditing(false)}
-              >
-                отменить
-              </button>
-              <button className="primary">сохранить</button>
-            </div>
-          </form>
-        ) : (
-          <>
-            <p>
-              {dateLabel(period.startDate)} — {dateLabel(period.nextSalaryDate)}
-            </p>
-            <div className="row">
-              <span>доход</span>
-              <b>{money(period.income)}</b>
-            </div>
-            <div className="row">
-              <span>предыдущий остаток</span>
-              <b>{money(period.previousBalance)}</b>
-            </div>
-            <button className="secondary" onClick={startEditing}>
-              изменить период
-            </button>
-          </>
-        )}
-      </section>
-      <section className="expense-settings">
-        <h2 className="section-title">скорректировать расходы</h2>
-        <Groups
-          p={period}
-          editable
-          onChange={change}
-          everydayCategories={categoriesFor(data, "everyday")}
-        />
-      </section>
-      <div className="period-actions">
-        <button
-          className="secondary"
-          onClick={() => {
-            const value = prompt("сумма дохода", "");
-            if (value === null) return;
-            const amount = num(value);
-            if (!validateAmount(amount) || amount === 0) return;
-            change({ ...period, income: period.income + amount });
-          }}
-        >
-          добавить доход
-        </button>
-        <button className="secondary" onClick={() => go("create")}>
-          создать следующий период
-        </button>
-        <button
-          className="secondary"
-          onClick={() => {
-            if (
-              confirm(
-                "очистить текущий период? даты, суммы, лимиты и расходы будут удалены",
-              )
-            ) {
-              save(
-                {
-                  ...data,
-                  periods: data.periods.filter((item) => item.id !== period.id),
-                },
-                "текущий период очищен",
-              );
-              go("home");
-            }
-          }}
-        >
-          очистить текущий период
-        </button>
-      </div>
-    </>
-  );
-}
 type PeriodField =
   "startDate" | "nextSalaryDate" | "income" | "previousBalance";
 
@@ -1129,19 +957,22 @@ function PeriodScreen({
     setEditField(undefined);
   };
   const settingRow = (field: PeriodField, value: React.ReactNode) => (
-    <div className="row" key={field}>
-      <span>{fieldLabels[field]}</span>
-      <span>
-        {value}{" "}
-        <button
-          className="icon"
-          aria-label={`изменить ${fieldLabels[field]}`}
-          onClick={() => openEdit(field)}
-        >
-          ✎
-        </button>
-      </span>
-    </div>
+    <SettingsRow
+      key={field}
+      label={fieldLabels[field]}
+      trailing={
+        <>
+          {value}{" "}
+          <button
+            className="icon"
+            aria-label={`изменить ${fieldLabels[field]}`}
+            onClick={() => openEdit(field)}
+          >
+            ✎
+          </button>
+        </>
+      }
+    />
   );
   return (
     <>
@@ -1253,128 +1084,6 @@ function More({ go }: { go: (p: Page) => void }) {
     </section>
   );
 }
-function LegacyCategories({
-  data,
-  save,
-  back,
-}: {
-  data: AppData;
-  save: (d: AppData, m?: string) => void;
-  back: () => void;
-}) {
-  const [error, setError] = useState("");
-  const add = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const v = String(f.get("category")).trim().toLowerCase();
-    const types = f.getAll("type") as ExpenseKind[];
-    if (!types.length) return setError("выберите хотя бы один тип расхода");
-    if (data.categories.includes(v))
-      return setError("такая категория уже есть");
-    setError("");
-    save(
-      {
-        ...data,
-        categories: [...data.categories, v],
-        categoryTypes: { ...data.categoryTypes, [v]: types },
-      },
-      "категория добавлена",
-    );
-    e.currentTarget.reset();
-  };
-  const rename = (c: string) => {
-    const v = prompt("новое название категории", c)?.trim().toLowerCase();
-    if (v && !data.categories.includes(v))
-      save(
-        {
-          ...data,
-          categories: data.categories.map((x) => (x === c ? v : x)),
-          categoryTypes: Object.fromEntries(
-            Object.entries(data.categoryTypes).map(([name, types]) => [
-              name === c ? v : name,
-              types,
-            ]),
-          ),
-        },
-        "категория переименована",
-      );
-  };
-  const typeLabels: Record<ExpenseKind, string> = {
-    mandatory: "обязательные",
-    everyday: "повседневные",
-    oneOff: "разовые",
-    impulse: "импульсивные",
-  };
-  return (
-    <section>
-      <Top title="категории" back={back} />
-      <div className="card">
-        {data.categories.map((c) => (
-          <div className="row" key={c}>
-            <span>
-              {c}
-              <small>
-                {(data.categoryTypes[c] ?? [])
-                  .map((type) => typeLabels[type])
-                  .join(" · ")}
-              </small>
-            </span>
-            <span>
-              <button
-                className="icon"
-                aria-label="переименовать"
-                onClick={() => rename(c)}
-              >
-                ✎
-              </button>
-              <button
-                className="icon"
-                aria-label="удалить"
-                onClick={() =>
-                  save(
-                    {
-                      ...data,
-                      categories: data.categories.filter((x) => x !== c),
-                      categoryTypes: Object.fromEntries(
-                        Object.entries(data.categoryTypes).filter(
-                          ([name]) => name !== c,
-                        ),
-                      ),
-                    },
-                    "категория удалена",
-                  )
-                }
-              >
-                ×
-              </button>
-            </span>
-          </div>
-        ))}
-      </div>
-      <form className="card category-form" onSubmit={add}>
-        <input name="category" placeholder="название категории" required />
-        <fieldset className="type-options">
-          <legend>тип расхода</legend>
-          {(
-            [
-              ["mandatory", "обязательные расходы"],
-              ["everyday", "повседневные расходы"],
-              ["oneOff", "разовые расходы"],
-              ["impulse", "импульсивные покупки"],
-            ] as [ExpenseKind, string][]
-          ).map(([value, label]) => (
-            <label className="type-option" key={value}>
-              <input type="checkbox" name="type" value={value} />
-              <span>{label}</span>
-            </label>
-          ))}
-        </fieldset>
-        {error && <p className="error">{error}</p>}
-        <button className="secondary">добавить</button>
-      </form>
-    </section>
-  );
-}
 const expenseTypeOptions: [ExpenseKind, string][] = [
   ["mandatory", "обязательные расходы"],
   ["everyday", "повседневные расходы"],
@@ -1382,7 +1091,7 @@ const expenseTypeOptions: [ExpenseKind, string][] = [
   ["impulse", "импульсивные покупки"],
 ];
 
-function Categories({
+export function Categories({
   data,
   save,
   back,
@@ -1401,6 +1110,7 @@ function Categories({
   const [editError, setEditError] = useState("");
   const [draftCategory, setDraftCategory] = useState<string>();
   const [addError, setAddError] = useState("");
+  const [adding, setAdding] = useState(false);
   useEffect(() => {
     setOrder(data.categories);
     dragOrder.current = data.categories;
@@ -1442,15 +1152,21 @@ function Categories({
         drafts: data.drafts.map((draft) =>
           draft.category === editing ? { ...draft, category: name } : draft,
         ),
-        periods: data.periods.map((period) => ({
-          ...period,
-          mandatory: period.mandatory.map(renameExpense),
-          everyday: period.everyday.map((item) =>
-            item.category === editing ? { ...item, category: name } : item,
-          ),
-          oneOff: period.oneOff.map(renameExpense),
-          impulse: period.impulse.map(renameExpense),
-        })),
+        periods: data.periods.map((period) =>
+          period.current
+            ? {
+                ...period,
+                mandatory: period.mandatory.map(renameExpense),
+                everyday: period.everyday.map((item) =>
+                  item.category === editing
+                    ? { ...item, category: name }
+                    : item,
+                ),
+                oneOff: period.oneOff.map(renameExpense),
+                impulse: period.impulse.map(renameExpense),
+              }
+            : period,
+        ),
       },
       "категория изменена",
     );
@@ -1473,6 +1189,7 @@ function Categories({
       "категория добавлена",
     );
     setAddError("");
+    setAdding(false);
     event.currentTarget.reset();
   };
   const moveDragged = (target: string) => {
@@ -1491,7 +1208,7 @@ function Categories({
   return (
     <section>
       <Top title="категории и расходы" back={back} />
-      <h2 className="section-title">изменить категории</h2>
+      <h2 className="section-title">категории</h2>
       <div className="card category-list">
         {order.map((category) => (
           <div
@@ -1536,15 +1253,31 @@ function Categories({
             <span>
               <button
                 className="icon"
-                aria-label="изменить категорию"
+                aria-label={`изменить категорию ${category}`}
                 onClick={() => beginEdit(category)}
               >
                 ✎
               </button>
               <button
                 className="icon"
-                aria-label="удалить категорию"
-                onClick={() => setDeleting(category)}
+                aria-label={`удалить категорию ${category}`}
+                onClick={() => {
+                  const active = data.periods
+                    .find((period) => period.current)
+                    ?.everyday.find(
+                      (item) =>
+                        item.category === category &&
+                        (item.limit !== 0 || item.expenses.length > 0),
+                    );
+                  if (active) {
+                    save(
+                      data,
+                      "нельзя удалить категорию, пока у неё есть активный лимит",
+                    );
+                    return;
+                  }
+                  setDeleting(category);
+                }}
               >
                 ×
               </button>
@@ -1552,13 +1285,9 @@ function Categories({
           </div>
         ))}
       </div>
-      <h2 className="section-title settings-subtitle">добавить категорию</h2>
-      <form className="card category-form" onSubmit={addCategory}>
-        <input name="category" placeholder="название категории" required />
-        <TypeOptions />
-        {addError && <p className="error">{addError}</p>}
-        <button className="secondary">добавить категорию</button>
-      </form>
+      <button className="secondary" onClick={() => setAdding(true)}>
+        добавить категорию
+      </button>
       <h2 className="section-title settings-subtitle">
         настроить обязательные расходы
       </h2>
@@ -1566,19 +1295,22 @@ function Categories({
         {mandatoryCategories.map((category) => {
           const draft = data.drafts.find((item) => item.category === category);
           return (
-            <div className="row" key={category}>
-              <span>{category}</span>
-              <span>
-                {money(draft?.amount ?? 0)}{" "}
-                <button
-                  className="icon"
-                  aria-label={`изменить сумму для категории ${category}`}
-                  onClick={() => setDraftCategory(category)}
-                >
-                  ✎
-                </button>
-              </span>
-            </div>
+            <SettingsRow
+              key={category}
+              label={category}
+              trailing={
+                <>
+                  {money(draft?.amount ?? 0)}{" "}
+                  <button
+                    className="icon"
+                    aria-label={`изменить сумму для категории ${category}`}
+                    onClick={() => setDraftCategory(category)}
+                  >
+                    ✎
+                  </button>
+                </>
+              }
+            />
           );
         })}
       </div>
@@ -1595,24 +1327,42 @@ function Categories({
             <fieldset className="type-options">
               <legend>тип расхода</legend>
               {expenseTypeOptions.map(([value, label]) => (
-                <label className="type-option" key={value}>
-                  <input
-                    type="checkbox"
-                    checked={editTypes.includes(value)}
-                    onChange={(event) =>
-                      setEditTypes(
-                        event.target.checked
-                          ? [...editTypes, value]
-                          : editTypes.filter((type) => type !== value),
-                      )
-                    }
-                  />
-                  <span>{label}</span>
-                </label>
+                <ExpenseTypeCheckbox
+                  key={value}
+                  value={value}
+                  label={label}
+                  checked={editTypes.includes(value)}
+                  onChange={(checked) =>
+                    setEditTypes(
+                      checked
+                        ? [...editTypes, value]
+                        : editTypes.filter((type) => type !== value),
+                    )
+                  }
+                />
               ))}
             </fieldset>
             {editError && <p className="error">{editError}</p>}
             <ModalActions close={() => setEditing(undefined)} />
+          </form>
+        </Modal>
+      )}
+      {adding && (
+        <Modal title="добавить категорию" onClose={() => setAdding(false)}>
+          <form className="category-form" onSubmit={addCategory}>
+            <input name="category" placeholder="название категории" required />
+            <TypeOptions />
+            {addError && <p className="error">{addError}</p>}
+            <div className="actions-row">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setAdding(false)}
+              >
+                отмена
+              </button>
+              <button className="primary">добавить</button>
+            </div>
           </form>
         </Modal>
       )}
@@ -1699,110 +1449,6 @@ function Categories({
   );
 }
 
-function Drafts({
-  data,
-  save,
-  back,
-}: {
-  data: AppData;
-  save: (d: AppData, m?: string) => void;
-  back: () => void;
-}) {
-  const submit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget),
-      amount = num(f.get("amount"));
-    if (!validateAmount(amount)) return;
-    save(
-      {
-        ...data,
-        drafts: [
-          ...data.drafts,
-          { id: uid(), category: String(f.get("category")), amount },
-        ],
-      },
-      "черновик добавлен",
-    );
-    e.currentTarget.reset();
-  };
-  const edit = (id: string) => {
-    const draft = data.drafts.find((item) => item.id === id);
-    if (!draft) return;
-    const category = prompt("категория", draft.category);
-    if (category === null || !data.categories.includes(category)) return;
-    const value = prompt("новая сумма", String(draft.amount));
-    if (value === null) return;
-    const amount = Number(value);
-    if (validateAmount(amount))
-      save(
-        {
-          ...data,
-          drafts: data.drafts.map((item) =>
-            item.id === id ? { ...item, category, amount } : item,
-          ),
-        },
-        "черновик изменён",
-      );
-  };
-  return (
-    <section>
-      <Top title="черновики обязательных расходов" back={back} />
-      <div className="card">
-        {data.drafts.length === 0 && (
-          <p className="muted">черновиков пока нет</p>
-        )}
-        {data.drafts.map((d) => (
-          <div className="row" key={d.id}>
-            <span>{d.category}</span>
-            <span>
-              {money(d.amount)}{" "}
-              <button
-                className="icon"
-                aria-label="изменить"
-                onClick={() => edit(d.id)}
-              >
-                ✎
-              </button>
-              <button
-                className="icon"
-                onClick={() =>
-                  save(
-                    {
-                      ...data,
-                      drafts: data.drafts.filter((x) => x.id !== d.id),
-                    },
-                    "черновик удалён",
-                  )
-                }
-              >
-                ×
-              </button>
-            </span>
-          </div>
-        ))}
-      </div>
-      <form className="inline" onSubmit={submit}>
-        <select name="category" required defaultValue="">
-          <option value="" disabled>
-            категория
-          </option>
-          {categoriesFor(data, "mandatory").map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-        <input
-          name="amount"
-          min="0"
-          inputMode="decimal"
-          placeholder="сумма"
-          onInput={formatAmountField}
-          required
-        />
-        <button>добавить</button>
-      </form>
-    </section>
-  );
-}
 function History({ periods, back }: { periods: Period[]; back: () => void }) {
   const [open, setOpen] = useState<Period>();
   if (open)
@@ -1893,15 +1539,39 @@ function Backup({
     </section>
   );
 }
-function TypeOptions() {
+export function ExpenseTypeCheckbox({
+  value,
+  label,
+  checked,
+  onChange,
+}: {
+  value: ExpenseKind;
+  label: string;
+  checked?: boolean;
+  onChange?: (checked: boolean) => void;
+}) {
+  return (
+    <label className="type-option">
+      <input
+        type="checkbox"
+        name="type"
+        value={value}
+        checked={checked}
+        onChange={
+          onChange ? (event) => onChange(event.target.checked) : undefined
+        }
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+export function TypeOptions() {
   return (
     <fieldset className="type-options">
       <legend>тип расхода</legend>
       {expenseTypeOptions.map(([value, label]) => (
-        <label className="type-option" key={value}>
-          <input type="checkbox" name="type" value={value} />
-          <span>{label}</span>
-        </label>
+        <ExpenseTypeCheckbox key={value} value={value} label={label} />
       ))}
     </fieldset>
   );
