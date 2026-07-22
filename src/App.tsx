@@ -1123,7 +1123,7 @@ function More({ go }: { go: (p: Page) => void }) {
     <section>
       <div className="menu">
         {[
-          ["categories", "категории и расходы"],
+          ["categories", "настройка категорий"],
           ["history", "история периодов"],
           ["backup", "резервная копия"],
         ].map(([p, t]) => (
@@ -1287,9 +1287,9 @@ export function Categories({
   const everydayCategories = categoriesFor(data, "everyday");
   return (
     <section>
-      <Top title="категории и расходы" back={back} />
-      <h2 className="section-title">настроить повседневные лимиты</h2>
-      <div className="card">
+      <Top title="настройка категорий" back={back} />
+      <div className="card settings-card">
+        <h2>повседневные лимиты</h2>
         {everydayCategories.map((category) => {
           const setting = data.everydayLimits.find(
             (item) => item.category === category,
@@ -1314,10 +1314,8 @@ export function Categories({
           );
         })}
       </div>
-      <h2 className="section-title settings-subtitle">
-        настроить обязательные расходы
-      </h2>
-      <div className="card">
+      <div className="card settings-card">
+        <h2>обязательные расходы</h2>
         {mandatoryCategories.map((category) => {
           const draft = data.drafts.find((item) => item.category === category);
           return (
@@ -1340,8 +1338,8 @@ export function Categories({
           );
         })}
       </div>
-      <h2 className="section-title settings-subtitle">настроить категории</h2>
-      <div className="card category-list">
+      <div className="card category-list settings-card">
+        <h2>категории</h2>
         {order.map((category) => (
           <div
             className="row category-row"

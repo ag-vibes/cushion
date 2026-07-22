@@ -389,13 +389,13 @@ describe("category settings UI", () => {
     const save = vi.fn();
     render(<Categories data={makeData()} save={save} back={vi.fn()} />);
     const limitHeading = screen.getByRole("heading", {
-      name: "настроить повседневные лимиты",
+      name: "повседневные лимиты",
     });
     const mandatoryHeading = screen.getByRole("heading", {
-      name: "настроить обязательные расходы",
+      name: "обязательные расходы",
     });
     const categoryHeading = screen.getByRole("heading", {
-      name: "настроить категории",
+      name: "категории",
     });
     expect(
       limitHeading.compareDocumentPosition(mandatoryHeading) &

@@ -349,7 +349,7 @@ p {
   font-weight: 700;
 }
 .modal-copy {
-  margin: 0 0 18px;
+  margin: 0 0 24px;
   color: var(--color-ink-muted);
 }
 button {
@@ -535,8 +535,11 @@ select {
   gap: 8px;
   margin-top: 14px;
 }
-.settings-subtitle {
-  margin-top: 28px;
+.settings-card {
+  margin-bottom: 28px;
+}
+.settings-card h2 {
+  margin-bottom: 8px;
 }
 .category-row {
   justify-content: flex-start;
