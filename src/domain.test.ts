@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addEverydayExpense,
   categoriesFor,
   defaultCategoryTypes,
   emptyData,
@@ -8,6 +9,7 @@ import {
   normalizeData,
   spent,
   stillPlanned,
+  suggestedPreviousBalance,
   validBackup,
   type Period,
 } from "./domain";
@@ -79,6 +81,41 @@ describe("financial calculations", () => {
     };
     expect(spent(l)).toBe(1400);
     expect(stillPlanned(l)).toBe(-400);
+  });
+  it("creates a limit from the first expense when the category has no limit", () => {
+    const items = addEverydayExpense(
+      [],
+      "еда",
+      { id: "expense", amount: 1200 },
+      "limit",
+    );
+    expect(items[0].limit).toBe(1200);
+    expect(stillPlanned(items[0])).toBe(0);
+  });
+  it("keeps an existing limit and exposes overspending", () => {
+    const items = addEverydayExpense(
+      [
+        {
+          id: "limit",
+          category: "еда",
+          limit: 1000,
+          expenses: [{ id: "first", amount: 900 }],
+        },
+      ],
+      "еда",
+      { id: "second", amount: 500 },
+      "unused",
+    );
+    expect(items[0].limit).toBe(1000);
+    expect(stillPlanned(items[0])).toBe(-400);
+  });
+  it("suggests only a positive previous-period balance", () => {
+    expect(suggestedPreviousBalance(period({ income: 1000 }))).toBe(0);
+    expect(
+      suggestedPreviousBalance(
+        period({ income: 10000, previousBalance: 0, mandatory: [] }),
+      ),
+    ).toBe(10000);
   });
   it("formats only five digit values with separators", () => {
     expect(formatAmount(9999)).toBe("9999");

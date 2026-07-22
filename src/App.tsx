@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  addEverydayExpense,
   categoriesFor,
   daysUntil,
   formatAmount,
@@ -7,6 +8,7 @@ import {
   normalizeData,
   spent,
   stillPlanned,
+  suggestedPreviousBalance,
   uid,
   validBackup,
   type AppData,
@@ -49,11 +51,17 @@ const formatInputAmount = (value: string) => {
 const formatAmountField = (event: React.FormEvent<HTMLInputElement>) => {
   event.currentTarget.value = formatInputAmount(event.currentTarget.value);
 };
+export const formatDateInput = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)]
+    .filter(Boolean)
+    .join(".");
+};
 const toRuDate = (iso: string) => {
   const [year, month, day] = iso.split("-");
   return year && month && day ? `${day}.${month}.${year}` : "";
 };
-const fromRuDate = (value: string) => {
+export const fromRuDate = (value: string) => {
   const match = value.trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
   if (!match) return "";
   const [, day, month, year] = match;
@@ -67,6 +75,32 @@ const fromRuDate = (value: string) => {
 };
 const validateAmount = (n: number, negative = false) =>
   Number.isFinite(n) && (negative || n >= 0);
+
+function DateInput({
+  value,
+  onChange,
+  name,
+  ariaLabel,
+  autoFocus,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  name?: string;
+  ariaLabel?: string;
+  autoFocus?: boolean;
+}) {
+  return (
+    <input
+      autoFocus={autoFocus}
+      name={name}
+      inputMode="numeric"
+      placeholder="дд.мм.гггг"
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(formatDateInput(event.target.value))}
+    />
+  );
+}
 
 export function App() {
   const [data, setData] = useState<AppData>();
@@ -170,13 +204,16 @@ export function App() {
 function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
   if (!period)
     return (
-      <section className="empty hero">
+      <section className="empty hero empty-period empty-period-home">
+        <img
+          className="empty-mascot"
+          src={`${import.meta.env.BASE_URL}mascot.svg`}
+          alt=""
+          aria-hidden="true"
+        />
         <h1>пока нет финансового периода</h1>
-        <p>
-          создайте период, чтобы начать планировать расходы до следующей
-          зарплаты
-        </p>
-        <button className="primary" onClick={() => go("create")}>
+        <p>начните планировать расходы до следующей зарплаты</p>
+        <button className="primary empty-cta" onClick={() => go("create")}>
           создать период
         </button>
       </section>
@@ -457,7 +494,7 @@ export function SettingsRow({
   );
 }
 
-function CreatePeriod({
+export function CreatePeriod({
   data,
   onSave,
   onCancel,
@@ -469,94 +506,104 @@ function CreatePeriod({
   const last = [...data.periods].sort((a, b) =>
     b.createdAt.localeCompare(a.createdAt),
   )[0];
-  const [step, setStep] = useState(1);
+  const isFirstPeriod = data.periods.length === 0;
   const [error, setError] = useState("");
+  const suggestedBalance = suggestedPreviousBalance(last);
+  const today = new Date();
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const [base, setBase] = useState({
-    startDate: toRuDate(new Date().toISOString().slice(0, 10)),
+    startDate: toRuDate(todayIso),
     nextSalaryDate: "",
     income: "",
-    previousBalance: "0",
+    previousBalance: "",
   });
-  const [mandatory, setMandatory] = useState<Expense[]>([]);
-  const [everyday, setEveryday] = useState<EverydayLimit[]>(
-    last?.everyday.map((x) => ({ ...x, id: uid(), expenses: [] })) ?? [],
-  );
-  const [oneOff, setOneOff] = useState<Expense[]>([]);
-  const next = () => {
-    if (step === 1) {
-      const inc = num(base.income),
-        bal = num(base.previousBalance),
-        startDate = fromRuDate(base.startDate),
-        nextSalaryDate = fromRuDate(base.nextSalaryDate);
-      if (!startDate || !nextSalaryDate || nextSalaryDate <= startDate)
-        return setError(
-          "введите даты в формате дд.мм.гггг; следующая зарплата должна быть позже даты начала",
-        );
-      if (!validateAmount(inc) || !validateAmount(bal, true))
-        return setError("проверьте введённые суммы");
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const inc = isFirstPeriod ? 0 : num(base.income);
+    const bal = isFirstPeriod
+      ? num(base.previousBalance)
+      : base.previousBalance
+        ? num(base.previousBalance)
+        : suggestedBalance;
+    const startDate = fromRuDate(base.startDate);
+    const nextSalaryDate = fromRuDate(base.nextSalaryDate);
+    if (!startDate || !nextSalaryDate || nextSalaryDate <= startDate) {
+      setError(
+        "введите существующие даты; следующая зарплата должна быть позже даты начала",
+      );
+      return;
     }
-    setError("");
-    setStep((s) => s + 1);
-  };
-  const submit = () =>
+    if (!validateAmount(inc) || !validateAmount(bal, true)) {
+      setError("проверьте введённые суммы");
+      return;
+    }
     onSave({
       id: uid(),
-      startDate: fromRuDate(base.startDate),
-      nextSalaryDate: fromRuDate(base.nextSalaryDate),
-      income: num(base.income),
-      previousBalance: num(base.previousBalance),
+      startDate,
+      nextSalaryDate,
+      income: inc,
+      previousBalance: bal,
       current: true,
       createdAt: new Date().toISOString(),
-      mandatory,
-      everyday,
-      oneOff,
+      mandatory: [],
+      everyday:
+        last?.everyday.map((item) => ({
+          ...item,
+          id: uid(),
+          expenses: [],
+        })) ?? [],
+      oneOff: [],
       impulse: [],
     });
+  };
   return (
     <section>
-      <Top
-        title="создание периода"
-        back={step === 1 ? onCancel : () => setStep((s) => s - 1)}
-      />
-      <div className="progress">
-        <i style={{ width: `${(step / 4) * 100}%` }} />
-      </div>
-      {step === 1 && (
+      <Top title="создание периода" back={onCancel} />
+      <form className="period-create-form" onSubmit={submit}>
         <div className="card form">
           <h2>основные данные</h2>
           <Field label="дата начала">
-            <input
-              inputMode="numeric"
-              placeholder="дд.мм.гггг"
+            <DateInput
               value={base.startDate}
-              onChange={(e) => setBase({ ...base, startDate: e.target.value })}
+              onChange={(value) => setBase({ ...base, startDate: value })}
             />
           </Field>
           <Field label="дата следующей зарплаты">
-            <input
-              inputMode="numeric"
-              placeholder="дд.мм.гггг"
+            <DateInput
               value={base.nextSalaryDate}
-              onChange={(e) =>
-                setBase({ ...base, nextSalaryDate: e.target.value })
-              }
+              onChange={(value) => setBase({ ...base, nextSalaryDate: value })}
             />
           </Field>
-          <Field label="доход">
-            <input
-              inputMode="decimal"
-              value={base.income}
-              placeholder="0"
-              onChange={(e) =>
-                setBase({ ...base, income: formatInputAmount(e.target.value) })
-              }
-            />
-          </Field>
-          <Field label="предыдущий остаток">
+          {!isFirstPeriod && (
+            <Field
+              label="доход в начале периода"
+              hint="зарплата и другие деньги, которые уже поступили"
+            >
+              <input
+                inputMode="decimal"
+                value={base.income}
+                placeholder="0"
+                onChange={(e) =>
+                  setBase({
+                    ...base,
+                    income: formatInputAmount(e.target.value),
+                  })
+                }
+              />
+            </Field>
+          )}
+          <Field
+            label={isFirstPeriod ? "остаток" : "предыдущий остаток"}
+            hint={
+              isFirstPeriod
+                ? "сколько денег доступно до следующей зарплаты"
+                : undefined
+            }
+          >
             <input
               inputMode="decimal"
               value={base.previousBalance}
-              placeholder="0"
+              placeholder={formatInputAmount(String(suggestedBalance))}
               onChange={(e) =>
                 setBase({
                   ...base,
@@ -566,169 +613,8 @@ function CreatePeriod({
             />
           </Field>
         </div>
-      )}
-      {step === 2 && (
-        <ExpenseEditor
-          title="обязательные расходы"
-          items={mandatory}
-          setItems={setMandatory}
-          categories={categoriesFor(data, "mandatory")}
-          drafts={data.drafts}
-        />
-      )}{" "}
-      {step === 3 && (
-        <LimitEditor
-          items={everyday}
-          setItems={setEveryday}
-          categories={categoriesFor(data, "everyday")}
-        />
-      )}{" "}
-      {step === 4 && (
-        <ExpenseEditor
-          title="разовые расходы"
-          items={oneOff}
-          setItems={setOneOff}
-          categories={categoriesFor(data, "oneOff")}
-          optional
-        />
-      )}
-      {error && <p className="error">{error}</p>}
-      <button className="primary" onClick={step === 4 ? submit : next}>
-        {step === 4 ? "создать период" : "продолжить"}
-      </button>
-    </section>
-  );
-}
-function LimitEditor({
-  items,
-  setItems,
-  categories,
-}: {
-  items: EverydayLimit[];
-  setItems: (x: EverydayLimit[]) => void;
-  categories: string[];
-}) {
-  return (
-    <ExpenseEditor
-      title="повседневные расходы"
-      items={items.map((x) => ({
-        id: x.id,
-        category: x.category,
-        amount: x.limit,
-      }))}
-      setItems={(xs) =>
-        setItems(
-          xs.map((x) => ({
-            id: x.id,
-            category: x.category,
-            limit: x.amount,
-            expenses: items.find((i) => i.id === x.id)?.expenses ?? [],
-          })),
-        )
-      }
-      categories={categories}
-      amountLabel="лимит"
-    />
-  );
-}
-
-function ExpenseEditor({
-  title,
-  items,
-  setItems,
-  categories,
-  amountLabel = "сумма",
-  optional,
-  drafts = [],
-}: {
-  title: string;
-  items: Expense[];
-  setItems: (x: Expense[]) => void;
-  categories: string[];
-  amountLabel?: string;
-  optional?: boolean;
-  drafts?: { category: string; amount: number }[];
-}) {
-  const ref = useRef<HTMLFormElement>(null);
-  const [category, setCategory] = useState("");
-  const draftAmount = drafts.find(
-    (draft) => draft.category === category,
-  )?.amount;
-  const add = (e: FormEvent) => {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget as HTMLFormElement);
-    const rawAmount = String(f.get("amount") ?? "").trim();
-    const amount = rawAmount ? num(rawAmount) : draftAmount;
-    if (amount === undefined) return;
-    if (!validateAmount(amount)) return;
-    setItems([
-      ...items,
-      {
-        id: uid(),
-        category: String(f.get("category")),
-        amount,
-        status: "предстоит",
-        date: optional ? fromRuDate(String(f.get("date") || "")) : undefined,
-      },
-    ]);
-    ref.current?.reset();
-    setCategory("");
-  };
-  return (
-    <section className="card">
-      <h2>{title}</h2>
-      {optional && <p className="muted">этот шаг можно пропустить</p>}
-      {items.map((x) => (
-        <div className="row" key={x.id}>
-          <span>
-            {x.category}
-            {x.date && <small>{dateLabel(x.date)}</small>}
-          </span>
-          <span>
-            {money(x.amount)}{" "}
-            <button
-              className="icon"
-              onClick={() => setItems(items.filter((i) => i.id !== x.id))}
-            >
-              ×
-            </button>
-          </span>
-        </div>
-      ))}
-      <form ref={ref} onSubmit={add} className="inline">
-        <select
-          name="category"
-          required
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-        >
-          <option value="" disabled>
-            категория
-          </option>
-          {categories.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-        <input
-          name="amount"
-          inputMode="decimal"
-          min="0"
-          placeholder={
-            draftAmount === undefined
-              ? amountLabel
-              : formatInputAmount(String(draftAmount))
-          }
-          onInput={formatAmountField}
-        />
-        {optional && (
-          <input
-            name="date"
-            inputMode="numeric"
-            placeholder="дд.мм.гггг"
-            aria-label="дата, необязательно"
-          />
-        )}
-        <button>добавить</button>
+        {error && <p className="error">{error}</p>}
+        <button className="primary">создать период</button>
       </form>
     </section>
   );
@@ -747,6 +633,7 @@ function AddExpense({
 }) {
   const [type, setType] = useState("everyday");
   const [category, setCategory] = useState("");
+  const [expenseDate, setExpenseDate] = useState("");
   const [error, setError] = useState("");
   const draftAmount =
     type === "mandatory"
@@ -768,26 +655,21 @@ function AddExpense({
     const category = String(f.get("category"));
     let p = period;
     if (type === "everyday") {
-      const target = p.everyday.find((x) => x.category === category);
       p = {
         ...p,
-        everyday: target
-          ? p.everyday.map((x) =>
-              x.id === target.id
-                ? { ...x, expenses: [...x.expenses, { id: uid(), amount }] }
-                : x,
-            )
-          : [
-              ...p.everyday,
-              {
-                id: uid(),
-                category,
-                limit: 0,
-                expenses: [{ id: uid(), amount }],
-              },
-            ],
+        everyday: addEverydayExpense(
+          p.everyday,
+          category,
+          { id: uid(), amount },
+          uid(),
+        ),
       };
     } else {
+      const date = type === "oneOff" ? fromRuDate(expenseDate) : undefined;
+      if (type === "oneOff" && expenseDate && !date) {
+        setError("введите существующую дату");
+        return;
+      }
       const e = {
         id: uid(),
         category,
@@ -796,10 +678,7 @@ function AddExpense({
           type === "mandatory" || type === "oneOff"
             ? (String(f.get("status")) as Status)
             : undefined,
-        date:
-          type === "oneOff"
-            ? fromRuDate(String(f.get("date") || ""))
-            : undefined,
+        date,
       };
       p = {
         ...p,
@@ -875,7 +754,11 @@ function AddExpense({
         )}
         {type === "oneOff" && (
           <Field label="дата, необязательно">
-            <input name="date" inputMode="numeric" placeholder="дд.мм.гггг" />
+            <DateInput
+              name="date"
+              value={expenseDate}
+              onChange={setExpenseDate}
+            />
           </Field>
         )}
         {error && <p className="error">{error}</p>}
@@ -905,9 +788,9 @@ function PeriodScreen({
   const [addingIncome, setAddingIncome] = useState(false);
   if (!period)
     return (
-      <section className="empty">
+      <section className="empty empty-period">
         <h1>нет текущего периода</h1>
-        <button className="primary" onClick={() => go("create")}>
+        <button className="primary empty-cta" onClick={() => go("create")}>
           создать период
         </button>
       </section>
@@ -1029,22 +912,18 @@ function PeriodScreen({
           onClose={() => setEditField(undefined)}
         >
           <form className="form" onSubmit={saveField}>
-            <input
-              autoFocus
-              inputMode={
-                editField === "startDate" || editField === "nextSalaryDate"
-                  ? "numeric"
-                  : "decimal"
-              }
-              value={editValue}
-              onChange={(event) =>
-                setEditValue(
-                  editField === "startDate" || editField === "nextSalaryDate"
-                    ? event.target.value
-                    : formatInputAmount(event.target.value),
-                )
-              }
-            />
+            {editField === "startDate" || editField === "nextSalaryDate" ? (
+              <DateInput autoFocus value={editValue} onChange={setEditValue} />
+            ) : (
+              <input
+                autoFocus
+                inputMode="decimal"
+                value={editValue}
+                onChange={(event) =>
+                  setEditValue(formatInputAmount(event.target.value))
+                }
+              />
+            )}
             {editError && <p className="error">{editError}</p>}
             <ModalActions close={() => setEditField(undefined)} />
           </form>
@@ -1652,15 +1531,18 @@ function AmountModal({
 
 function Field({
   label,
+  hint,
   children,
 }: {
   label: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
       {children}
+      {hint && <small aria-hidden="true">{hint}</small>}
     </label>
   );
 }

@@ -212,9 +212,39 @@ p {
 .empty.hero {
   margin-top: 30px;
 }
+.empty-period {
+  display: grid;
+  gap: 18px;
+  align-content: center;
+  min-height: 320px;
+  padding: 36px 22px;
+}
+.empty-period h1,
+.empty-period p {
+  margin: 0;
+}
+.empty-period h1,
+.empty.hero.empty-period h1 {
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+}
+.empty-period-home {
+  margin-top: 18px;
+  padding-top: 30px;
+}
+.empty-period-home p {
+  max-width: 330px;
+  margin-inline: auto;
+}
+.empty-mascot {
+  width: 134px;
+  height: auto;
+  margin: 0 auto 2px;
+  transform: rotate(-3deg);
+}
 .primary,
-.secondary,
-.inline button {
+.secondary {
   border: 0;
   border-radius: 18px;
   padding: 15px 18px;
@@ -222,6 +252,10 @@ p {
   font-weight: 700;
   cursor: pointer;
   width: 100%;
+}
+.empty-cta {
+  width: min(240px, 100%);
+  justify-self: center;
 }
 .category-form {
   display: grid;
@@ -339,6 +373,10 @@ nav button.active {
   gap: 15px;
   min-width: 0;
 }
+.period-create-form {
+  display: grid;
+  gap: 16px;
+}
 .field {
   display: grid;
   gap: 7px;
@@ -348,10 +386,13 @@ nav button.active {
   font-size: 13px;
   color: var(--color-ink-muted);
 }
+.field small {
+  color: var(--color-ink-subtle);
+  font-size: var(--font-meta);
+  line-height: 1.4;
+}
 .field input,
-.field select,
-.inline input,
-.inline select {
+.field select {
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -386,39 +427,6 @@ select {
 }
 .top h1 {
   font-size: 24px;
-}
-.progress {
-  height: 5px;
-  background: var(--color-surface);
-  border-radius: 9px;
-  overflow: hidden;
-}
-.progress i {
-  display: block;
-  height: 100%;
-  background: var(--color-primary);
-  transition: 0.2s;
-}
-.pick {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 0;
-}
-.pick span {
-  flex: 1;
-}
-.inline {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
-  gap: 7px;
-  margin-bottom: 12px;
-}
-.inline button {
-  width: auto;
-  padding: 10px;
-  background: var(--color-surface);
-  color: var(--color-primary-text);
 }
 .actions-row {
   display: grid;
@@ -551,15 +559,6 @@ select {
   display: grid;
   place-items: center;
   min-height: 100vh;
-}
-@media (max-width: 520px) {
-  .inline {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .inline button {
-    grid-column: 1 / -1;
-    width: 100%;
-  }
 }
 @media (max-width: 380px) {
   .hero h1 {

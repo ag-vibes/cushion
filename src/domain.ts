@@ -142,6 +142,33 @@ export const uid = () => crypto.randomUUID();
 export const spent = (item: EverydayLimit) =>
   item.expenses.reduce((s, e) => s + e.amount, 0);
 export const stillPlanned = (item: EverydayLimit) => item.limit - spent(item);
+export const addEverydayExpense = (
+  items: EverydayLimit[],
+  category: string,
+  expense: { id: string; amount: number },
+  newLimitId: string,
+) => {
+  const target = items.find((item) => item.category === category);
+  if (!target)
+    return [
+      ...items,
+      {
+        id: newLimitId,
+        category,
+        limit: expense.amount,
+        expenses: [expense],
+      },
+    ];
+  return items.map((item) =>
+    item.id === target.id
+      ? {
+          ...item,
+          limit: item.limit === 0 ? expense.amount : item.limit,
+          expenses: [...item.expenses, expense],
+        }
+      : item,
+  );
+};
 export const freeMoney = (p: Period) =>
   p.income +
   p.previousBalance -
@@ -149,6 +176,8 @@ export const freeMoney = (p: Period) =>
   p.everyday.reduce((s, e) => s + spent(e) + stillPlanned(e), 0) -
   p.oneOff.reduce((s, e) => s + e.amount, 0) -
   p.impulse.reduce((s, e) => s + e.amount, 0);
+export const suggestedPreviousBalance = (period?: Period) =>
+  period ? Math.max(0, freeMoney(period)) : 0;
 export const formatAmount = (n: number) => {
   const rounded = Math.round(n);
   return Math.abs(rounded) >= 10000

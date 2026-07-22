@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Categories } from "./App";
-import type { AppData, Period } from "./domain";
+import { Categories, CreatePeriod, formatDateInput, fromRuDate } from "./App";
+import { emptyData, type AppData, type Period } from "./domain";
 
 const makePeriod = (current: boolean): Period => ({
   id: current ? "current" : "past",
@@ -26,6 +26,69 @@ const makeData = (): AppData => ({
 });
 
 afterEach(cleanup);
+
+describe("date input", () => {
+  it("adds date separators while the user types digits", () => {
+    expect(formatDateInput("04082026")).toBe("04.08.2026");
+    expect(formatDateInput("04a08-2026")).toBe("04.08.2026");
+  });
+
+  it("accepts only real calendar dates", () => {
+    expect(fromRuDate("29.02.2024")).toBe("2024-02-29");
+    expect(fromRuDate("31.02.2024")).toBe("");
+  });
+});
+
+describe("period creation", () => {
+  it("creates a period from one screen and formats typed dates", () => {
+    const onSave = vi.fn();
+    render(
+      <CreatePeriod data={emptyData()} onSave={onSave} onCancel={vi.fn()} />,
+    );
+    expect(screen.queryByRole("button", { name: "продолжить" })).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: "дата начала" }), {
+      target: { value: "01072026" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "дата следующей зарплаты" }),
+      { target: { value: "04082026" } },
+    );
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "дата следующей зарплаты",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("04.08.2026");
+    fireEvent.change(screen.getByRole("textbox", { name: "остаток" }), {
+      target: { value: "50000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "создать период" }));
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      nextSalaryDate: "2026-08-04",
+      income: 0,
+      previousBalance: 50000,
+      mandatory: [],
+      oneOff: [],
+    });
+  });
+
+  it("separates received income and previous balance in later periods", () => {
+    render(
+      <CreatePeriod data={makeData()} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(
+      screen.getByRole("textbox", { name: "доход в начале периода" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("зарплата и другие деньги, которые уже поступили"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("textbox", { name: "предыдущий остаток" }),
+    ).toHaveProperty("placeholder", "90 000");
+  });
+});
 
 describe("category settings UI", () => {
   it("opens a compact add-category form with a short submit label", () => {
