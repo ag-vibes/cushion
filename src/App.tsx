@@ -320,6 +320,10 @@ function Groups({
     value: number;
     apply: (amount: number) => void;
   }>();
+  const [pendingDelete, setPendingDelete] = useState<{
+    category: string;
+    apply: () => void;
+  }>();
   const status = (group: "mandatory" | "oneOff", e: Expense) => {
     const interactive = (editable || statusEditable) && onChange;
     return interactive ? (
@@ -381,11 +385,15 @@ function Groups({
               className="icon"
               aria-label={`удалить расход ${e.category}`}
               onClick={() =>
-                onChange?.({
-                  ...p,
-                  [group ?? "impulse"]: (
-                    p[group ?? "impulse"] as Expense[]
-                  ).filter((x) => x.id !== e.id),
+                setPendingDelete({
+                  category: e.category,
+                  apply: () =>
+                    onChange?.({
+                      ...p,
+                      [group ?? "impulse"]: (
+                        p[group ?? "impulse"] as Expense[]
+                      ).filter((x) => x.id !== e.id),
+                    }),
                 })
               }
             >
@@ -442,14 +450,18 @@ function Groups({
           className="icon"
           aria-label={`удалить расход ${expense.category}`}
           onClick={() =>
-            onChange?.({
-              ...p,
-              everyday: p.everyday.map((item) => ({
-                ...item,
-                expenses: item.expenses.filter(
-                  (entry) => entry.id !== expense.id,
-                ),
-              })),
+            setPendingDelete({
+              category: expense.category,
+              apply: () =>
+                onChange?.({
+                  ...p,
+                  everyday: p.everyday.map((item) => ({
+                    ...item,
+                    expenses: item.expenses.filter(
+                      (entry) => entry.id !== expense.id,
+                    ),
+                  })),
+                }),
             })
           }
         >
@@ -526,6 +538,34 @@ function Groups({
             setAmountEdit(undefined);
           }}
         />
+      )}
+      {pendingDelete && (
+        <Modal
+          title="удалить расход?"
+          onClose={() => setPendingDelete(undefined)}
+        >
+          <p className="modal-copy">
+            удалить расход «{pendingDelete.category}» из текущего периода?
+          </p>
+          <div className="actions-row">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setPendingDelete(undefined)}
+            >
+              отмена
+            </button>
+            <button
+              className="danger-action"
+              onClick={() => {
+                pendingDelete.apply();
+                setPendingDelete(undefined);
+              }}
+            >
+              удалить
+            </button>
+          </div>
+        </Modal>
       )}
     </>
   );
@@ -1453,7 +1493,7 @@ export function Categories({
               отмена
             </button>
             <button
-              className="primary"
+              className="danger-action"
               onClick={() => {
                 save(
                   {
@@ -1642,6 +1682,7 @@ export function Backup({
   back: () => void;
 }) {
   const [error, setError] = useState("");
+  const [pendingRestore, setPendingRestore] = useState<AppData>();
   const download = () => {
     const lastBackupDate = todayIso();
     const backup = { ...data, lastBackupDate };
@@ -1662,8 +1703,7 @@ export function Backup({
     try {
       const d = JSON.parse(await file.text());
       if (!validBackup(d)) throw Error();
-      if (confirm("текущие локальные данные будут заменены. продолжить?"))
-        restore(normalizeData(d));
+      setPendingRestore(normalizeData(d));
     } catch {
       setError("файл не является корректной резервной копией cushion");
     }
@@ -1694,6 +1734,34 @@ export function Backup({
         </label>
         {error && <p className="error">{error}</p>}
       </div>
+      {pendingRestore && (
+        <Modal
+          title="восстановить резервную копию?"
+          onClose={() => setPendingRestore(undefined)}
+        >
+          <p className="modal-copy">
+            текущие локальные данные будут полностью заменены
+          </p>
+          <div className="actions-row">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setPendingRestore(undefined)}
+            >
+              отмена
+            </button>
+            <button
+              className="danger-action"
+              onClick={() => {
+                restore(pendingRestore);
+                setPendingRestore(undefined);
+              }}
+            >
+              восстановить
+            </button>
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }

@@ -249,6 +249,40 @@ describe("period completion UI", () => {
     ).toBeNull();
   });
 
+  it("asks for confirmation before deleting an expense", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T12:00:00"));
+    const save = vi.fn();
+    const current = {
+      ...makePeriod(true),
+      mandatory: [
+        {
+          id: "rent",
+          category: "аренда",
+          amount: 30000,
+          status: "предстоит" as const,
+        },
+      ],
+    };
+    render(
+      <PeriodScreen
+        data={{ ...makeData(), periods: [current, makePeriod(false)] }}
+        period={current}
+        save={save}
+        go={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "удалить расход аренда" }),
+    );
+    expect(save).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "удалить расход?" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "удалить" }));
+    expect(save).toHaveBeenCalledOnce();
+  });
+
   it("offers the next period on salary day", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-04T12:00:00"));
