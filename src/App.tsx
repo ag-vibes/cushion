@@ -544,9 +544,6 @@ function Groups({
           title="удалить расход?"
           onClose={() => setPendingDelete(undefined)}
         >
-          <p className="modal-copy">
-            удалить расход «{pendingDelete.category}» из текущего периода?
-          </p>
           <div className="actions-row">
             <button
               type="button"
@@ -1089,7 +1086,6 @@ export function PeriodScreen({
           title="очистить текущий период?"
           onClose={() => setClearingPeriod(false)}
         >
-          <p className="modal-copy">даты, суммы и расходы будут удалены</p>
           <div className="actions-row">
             <button
               className="secondary"
@@ -1479,11 +1475,11 @@ export function Categories({
         </Modal>
       )}
       {deleting && (
-        <Modal title="удалить категорию" onClose={() => setDeleting(undefined)}>
-          <p>удалить категорию «{deleting}»?</p>
-          <p className="muted">
-            записанные расходы в текущем и прошлых периодах сохранятся
-          </p>
+        <Modal
+          title="удалить категорию?"
+          onClose={() => setDeleting(undefined)}
+        >
+          <p className="modal-copy">ранее внесённые расходы сохранятся</p>
           <div className="actions-row">
             <button
               type="button"

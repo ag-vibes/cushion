@@ -279,6 +279,9 @@ describe("period completion UI", () => {
     expect(
       screen.getByRole("dialog", { name: "удалить расход?" }),
     ).toBeTruthy();
+    expect(
+      screen.queryByText("удалить расход «аренда» из текущего периода?"),
+    ).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "удалить" }));
     expect(save).toHaveBeenCalledOnce();
   });
@@ -337,6 +340,9 @@ describe("period completion UI", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "отмена" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "очистить" })).toBeTruthy();
+    expect(
+      screen.queryByText("даты, суммы и расходы будут удалены"),
+    ).toBeNull();
   });
 
   it("shows zero period amounts as a placeholder when editing", () => {
@@ -448,6 +454,26 @@ describe("category settings UI", () => {
     expect(
       screen.queryByRole("heading", { name: "удалить категорию" }),
     ).toBeNull();
+  });
+
+  it("uses a concise category deletion confirmation", () => {
+    const data = {
+      ...makeData(),
+      everydayLimits: [],
+      periods: [
+        { ...makePeriod(true), everyday: [] },
+        { ...makePeriod(false), everyday: [] },
+      ],
+    };
+    render(<Categories data={data} save={vi.fn()} back={vi.fn()} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "удалить категорию еда" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "удалить категорию?" }),
+    ).toBeTruthy();
+    expect(screen.getByText("ранее внесённые расходы сохранятся")).toBeTruthy();
+    expect(screen.queryByText("удалить категорию «еда»?")).toBeNull();
   });
 
   it("renames the current period without rewriting completed history", () => {

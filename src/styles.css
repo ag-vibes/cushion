@@ -349,7 +349,7 @@ p {
   font-weight: 700;
 }
 .modal-copy {
-  margin: -4px 0 18px;
+  margin: 0 0 18px;
   color: var(--color-ink-muted);
 }
 button {
