@@ -188,7 +188,7 @@ function Home({ period, go }: { period?: Period; go: (p: Page) => void }) {
           <span>
             {dateLabel(period.startDate)} — {dateLabel(period.nextSalaryDate)}
           </span>
-          <span>{daysUntil(period.nextSalaryDate)} дн. до зарплаты</span>
+          <span>{daysUntil(period.nextSalaryDate)} дней до зарплаты</span>
         </p>
         <h1>{money(freeMoney(period))}</h1>
         <span className="money-label">свободные деньги</span>
