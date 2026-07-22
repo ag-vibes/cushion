@@ -372,6 +372,9 @@ select {
   font-size: 22px;
   margin: 0 0 14px;
 }
+.top + .section-title {
+  margin-top: 20px;
+}
 .period-actions {
   display: grid;
   gap: 8px;
