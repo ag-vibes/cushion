@@ -401,6 +401,8 @@ Primary action:
 
 - `добавить расход`
 
+The primary action is placed immediately below the period hero and scrolls with the page; it must not cover expense cards or the bottom navigation.
+
 The free money value must be the strongest visual element.
 
 ### 11.2 Добавить расход
