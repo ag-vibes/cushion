@@ -201,6 +201,10 @@ It is added to income when calculating free money.
 
 Creating a new period makes the previous current period historical.
 
+The current period remains active throughout the next-salary date. On that date, `создать следующий период` is offered on the main screen. From the following calendar day, if no new period was created, the current period is shown as finished and becomes read-only: expenses, income, limits and other values are no longer changed or recalculated. The user may still move the next-salary date forward if the salary was delayed, which makes the period active again.
+
+The finished-period state offers `создать период` on the main screen. A period is never closed automatically before the user creates its successor.
+
 Historical periods remain readable.
 
 Editing historical periods is outside MVP scope.
