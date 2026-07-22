@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="title">
+  <title id="title">cushion</title>
+  <rect width="180" height="180" rx="38" fill="#c9e0b9"/>
+  <g transform="translate(20 35) scale(.78)">
+    <path d="M25 20c17-7 29 9 47 7 13-2 24-4 37-3 19 2 31-11 47-3 9 5 9 16 5 26-5 12-3 21-3 29 0 10-2 18 3 29 5 11 4 22-5 27-16 8-28-6-47-3-13 2-24 1-37-1-18-3-30 12-47 5-10-4-10-16-5-27 5-11 3-20 3-29 0-10 2-19-3-30-5-11-4-22 5-27Z" fill="#fffaf1" stroke="#2b2420" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M33 33c5 1 9 4 12 8M30 39c5 1 8 4 11 8M147 33c-5 1-9 4-12 8M150 39c-5 1-8 4-11 8M33 120c5-1 9-4 12-8M30 114c5-1 8-4 11-8M147 120c-5-1-9-4-12-8M150 114c-5-1-8-4-11-8" fill="none" stroke="#2b2420" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="69" cy="70" r="4.5" fill="#2b2420"/>
+    <circle cx="111" cy="70" r="4.5" fill="#2b2420"/>
+    <path d="M79 84c7 7 15 7 22 0" fill="none" stroke="#2b2420" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>
