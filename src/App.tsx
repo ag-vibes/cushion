@@ -313,8 +313,13 @@ function Groups({
           {everydayItems.length === 0 && (
             <p className="muted">повседневные лимиты не заданы</p>
           )}
-          {everydayItems.map((e) => (
-            <div className="row" key={e.id}>
+          {everydayItems.map((e) => {
+            const usage = e.limit > 0 ? (spent(e) / e.limit) * 100 : 0;
+            const progressTone =
+              usage >= 90 ? "danger" : usage >= 50 ? "warning" : "safe";
+            const remaining = stillPlanned(e);
+            return (
+            <div className={`row everyday-row${editable ? " editable" : ""}`} key={e.id}>
               <span>
                 {e.category}
                 {!editable && (
@@ -324,8 +329,8 @@ function Groups({
                   </small>
                 )}
               </span>
-              <span>
-                {money(editable ? e.limit : stillPlanned(e))}{" "}
+              <span className={!editable && remaining < 0 ? "negative" : ""}>
+                {money(editable ? e.limit : remaining)}{" "}
                 {editable && (
                   <>
                     <button
@@ -366,8 +371,17 @@ function Groups({
                   </>
                 )}
               </span>
+              {!editable && (
+                <span className="category-progress" aria-hidden="true">
+                  <i
+                    className={progressTone}
+                    style={{ width: `${Math.min(Math.max(usage, 0), 100)}%` }}
+                  />
+                </span>
+              )}
             </div>
-          ))}
+            );
+          })}
         </section>
         <Group title="разовые расходы" empty="разовых расходов не было">
           {p.oneOff.map((e) => row(e, "oneOff"))}
