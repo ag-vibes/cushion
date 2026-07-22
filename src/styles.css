@@ -309,7 +309,10 @@ p {
   margin-bottom: 10px;
 }
 .floating {
-  position: sticky;
+  position: fixed;
+  left: 50%;
+  width: min(calc(100% - 36px), 484px);
+  transform: translateX(-50%);
   bottom: calc(88px + env(safe-area-inset-bottom));
   z-index: 4;
   box-shadow: 0 8px 20px rgba(143, 187, 124, 0.4);
