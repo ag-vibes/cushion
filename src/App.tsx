@@ -1631,11 +1631,11 @@ export function Backup({
         <button className="secondary" onClick={download}>
           создать резервную копию
         </button>
-        {data.lastBackupDate && (
-          <p className="muted">
-            последняя резервная копия: {backupDateLabel(data.lastBackupDate)}
-          </p>
-        )}
+        <p className="muted">
+          {data.lastBackupDate
+            ? `последняя резервная копия: ${backupDateLabel(data.lastBackupDate)}`
+            : "резервная копия ещё не создавалась"}
+        </p>
       </div>
       <div className="card">
         <h2>восстановить данные</h2>

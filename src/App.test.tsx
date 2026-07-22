@@ -52,6 +52,19 @@ describe("date input", () => {
 });
 
 describe("backup", () => {
+  it("shows the empty backup state before the first backup", () => {
+    render(
+      <Backup
+        data={makeData()}
+        save={vi.fn()}
+        restore={vi.fn()}
+        back={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("резервная копия ещё не создавалась")).toBeTruthy();
+  });
+
   it("shows and updates the last backup date", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-22T12:00:00"));
