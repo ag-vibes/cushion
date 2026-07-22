@@ -152,6 +152,63 @@ describe("period creation", () => {
 });
 
 describe("period completion UI", () => {
+  it("uses the shared category order on the home screen", () => {
+    const current = {
+      ...makePeriod(true),
+      everyday: [
+        { id: "transport", category: "транспорт", limit: 1000, expenses: [] },
+        { id: "food", category: "еда", limit: 1000, expenses: [] },
+        { id: "padel", category: "падел", limit: 1000, expenses: [] },
+      ],
+    };
+    render(
+      <Home
+        period={current}
+        go={vi.fn()}
+        categoryOrder={["еда", "транспорт", "падел"]}
+      />,
+    );
+    const food = screen.getByText("еда");
+    const transport = screen.getByText("транспорт");
+    const padel = screen.getByText("падел");
+    expect(
+      food.compareDocumentPosition(transport) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      transport.compareDocumentPosition(padel) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("toggles an expense status on the home screen without changing its amount", () => {
+    const onChange = vi.fn();
+    const current = {
+      ...makePeriod(true),
+      mandatory: [
+        {
+          id: "rent",
+          category: "аренда",
+          amount: 30000,
+          status: "предстоит" as const,
+        },
+      ],
+    };
+    render(
+      <Home
+        period={current}
+        go={vi.fn()}
+        categoryOrder={["аренда"]}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "предстоит" }));
+    expect(onChange.mock.calls[0][0].mandatory[0]).toMatchObject({
+      amount: 30000,
+      status: "оплачено",
+    });
+  });
+
   it("edits actual everyday expenses instead of limits on the period screen", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-22T12:00:00"));

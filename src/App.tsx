@@ -175,7 +175,22 @@ export function App() {
         back={() => setPage("more")}
       />
     ) : (
-      <Home period={current} go={setPage} />
+      <Home
+        period={current}
+        go={setPage}
+        categoryOrder={data.categories}
+        onChange={(period) =>
+          update(
+            {
+              ...data,
+              periods: data.periods.map((item) =>
+                item.id === period.id ? period : item,
+              ),
+            },
+            "статус расхода изменён",
+          )
+        }
+      />
     );
   return (
     <div className="app">
@@ -213,9 +228,13 @@ export function App() {
 export function Home({
   period,
   go,
+  categoryOrder,
+  onChange,
 }: {
   period?: Period;
   go: (p: Page) => void;
+  categoryOrder?: string[];
+  onChange?: (period: Period) => void;
 }) {
   if (!period)
     return (
@@ -274,45 +293,58 @@ export function Home({
           )}
         </div>
       )}
-      <Groups p={period} />
+      <Groups
+        p={period}
+        categoryOrder={categoryOrder}
+        statusEditable={!finished}
+        onChange={onChange}
+      />
     </>
   );
 }
 function Groups({
   p,
   editable,
+  statusEditable,
   onChange,
+  categoryOrder,
 }: {
   p: Period;
   editable?: boolean;
+  statusEditable?: boolean;
   onChange?: (p: Period) => void;
+  categoryOrder?: string[];
 }) {
   const [amountEdit, setAmountEdit] = useState<{
     title: string;
     value: number;
     apply: (amount: number) => void;
   }>();
-  const status = (group: "mandatory" | "oneOff", e: Expense) => (
-    <button
-      className="status"
-      onClick={() =>
-        editable &&
-        onChange?.({
-          ...p,
-          [group]: p[group].map((x) =>
-            x.id === e.id
-              ? {
-                  ...x,
-                  status: x.status === "оплачено" ? "предстоит" : "оплачено",
-                }
-              : x,
-          ),
-        })
-      }
-    >
-      {e.status}
-    </button>
-  );
+  const status = (group: "mandatory" | "oneOff", e: Expense) => {
+    const interactive = (editable || statusEditable) && onChange;
+    return interactive ? (
+      <button
+        className="status"
+        onClick={() =>
+          onChange({
+            ...p,
+            [group]: p[group].map((x) =>
+              x.id === e.id
+                ? {
+                    ...x,
+                    status: x.status === "оплачено" ? "предстоит" : "оплачено",
+                  }
+                : x,
+            ),
+          })
+        }
+      >
+        {e.status}
+      </button>
+    ) : (
+      <span className="status">{e.status}</span>
+    );
+  };
   const editAmount = (
     title: string,
     value: number,
@@ -324,8 +356,9 @@ function Groups({
         {e.category}
         {e.date && <small>{dateLabel(e.date)}</small>}
       </span>
-      <span>
-        {group && status(group, e)} {money(e.amount)}{" "}
+      <span className="expense-trailing">
+        {group && status(group, e)}
+        {money(e.amount)}
         {editable && (
           <>
             <button
@@ -363,8 +396,19 @@ function Groups({
       </span>
     </div>
   );
-  const everydayExpenses = p.everyday.flatMap((item) =>
-    item.expenses.map((expense) => ({ ...expense, category: item.category })),
+  const categoryPosition = (category: string) => {
+    const position = categoryOrder?.indexOf(category) ?? -1;
+    return position < 0 ? Number.MAX_SAFE_INTEGER : position;
+  };
+  const ordered = <T extends { category: string }>(items: T[]) =>
+    [...items].sort(
+      (left, right) =>
+        categoryPosition(left.category) - categoryPosition(right.category),
+    );
+  const everydayExpenses = ordered(
+    p.everyday.flatMap((item) =>
+      item.expenses.map((expense) => ({ ...expense, category: item.category })),
+    ),
   );
   const everydayExpenseRow = (expense: {
     id: string;
@@ -421,7 +465,7 @@ function Groups({
           title="обязательные расходы"
           empty="обязательных расходов пока нет"
         >
-          {p.mandatory.map((e) => row(e, "mandatory"))}
+          {ordered(p.mandatory).map((e) => row(e, "mandatory"))}
         </Group>
         <section className="card">
           <h2>повседневные расходы</h2>
@@ -435,7 +479,7 @@ function Groups({
             <p className="muted">повседневные лимиты не заданы</p>
           ) : null}
           {!editable &&
-            p.everyday.map((e) => {
+            ordered(p.everyday).map((e) => {
               const usage = e.limit > 0 ? (spent(e) / e.limit) * 100 : 0;
               const progressTone =
                 usage >= 90 ? "danger" : usage >= 50 ? "warning" : "safe";
@@ -463,13 +507,13 @@ function Groups({
             })}
         </section>
         <Group title="разовые расходы" empty="разовых расходов не было">
-          {p.oneOff.map((e) => row(e, "oneOff"))}
+          {ordered(p.oneOff).map((e) => row(e, "oneOff"))}
         </Group>
         <Group
           title="импульсивные покупки"
           empty="импульсивных покупок не было"
         >
-          {p.impulse.map((e) => row(e))}
+          {ordered(p.impulse).map((e) => row(e))}
         </Group>
       </div>
       {amountEdit && (
@@ -940,6 +984,7 @@ export function PeriodScreen({
           p={period}
           editable={!finished}
           onChange={finished ? undefined : change}
+          categoryOrder={data.categories}
         />
       </section>
       <section className="period-settings">
@@ -1626,7 +1671,7 @@ export function Backup({
       <div className="card">
         <h2>сохранить данные</h2>
         <p className="muted">
-          создайте файл со всеми периодами, категориями и черновиками
+          создайте файл со всеми периодами, категориями и расходами
         </p>
         <button className="secondary" onClick={download}>
           создать резервную копию

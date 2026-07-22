@@ -15,7 +15,12 @@
   --font-meta: 12.5px;
   --font-card-title: 16px;
   --font-section-title: 22px;
-  font-family: Manrope, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family:
+    Manrope,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
   color: var(--color-ink);
   background: var(--color-bg);
   font-synthesis: none;
@@ -354,8 +359,14 @@ button {
   border: 0;
   border-radius: 8px;
   padding: 4px 7px;
-  background: var(--color-surface);
+  background: #e2eedc;
   color: var(--color-ink-muted);
+}
+.expense-trailing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 .icon {
   border: 0;
