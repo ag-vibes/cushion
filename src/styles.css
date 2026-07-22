@@ -368,6 +368,9 @@ button {
   justify-content: flex-end;
   gap: 10px;
 }
+.expense-trailing .icon {
+  padding-inline: 0;
+}
 .icon {
   border: 0;
   background: transparent;
