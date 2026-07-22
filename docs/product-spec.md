@@ -104,26 +104,26 @@ Categories are displayed in Russian and lowercase.
 
 The confirmed initial category list is:
 
+- `аренда`
 - `еда`
 - `транспорт`
 - `дом и гигиена`
-- `падел`
 - `красота`
-- `здоровье`
+- `падел`
 - `покупки`
+- `здоровье`
 - `развлечения`
-- `аренда`
 - `подписки`
 - `регулярные платежи`
+- `услуги`
 - `сплит`
 - `долг`
-- `услуги`
 
 Categories are analytical labels only.
 
 A category does not determine financial behaviour. Expense type determines financial behaviour.
 
-The user may add, rename, reorder and delete categories. A category may belong to multiple expense types, and those types can be edited.
+The user may add, rename, reorder and delete categories. A category may belong to multiple expense types, and those types can be edited. Lists filtered by expense type preserve the relative order of this shared category list.
 
 Deleting a category must not delete existing expenses. A category cannot be deleted while it has an active everyday limit or everyday spending in the current period. Existing expenses in completed periods retain their original category value.
 
