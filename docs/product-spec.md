@@ -79,52 +79,55 @@ Do not use title case.
 
 ### 3.3 Fixed UI terminology
 
-| Internal concept | Required UI text |
-|---|---|
-| Free Money | `свободные деньги` |
-| Financial Period | `финансовый период` |
-| Mandatory Payments | `обязательные платежи` |
-| Everyday Expenses | `повседневные расходы` |
-| One-off Expenses | `разовые расходы` |
-| Impulse Purchases | `импульсивные покупки` |
-| Add Expense | `добавить расход` |
-| Home | `главная` |
-| Period | `период` |
-| More | `ещё` |
-| Planned | `предстоит` |
-| Paid | `оплачено` |
-| Backup | `резервная копия` |
-| Restore Backup | `восстановить резервную копию` |
+| Internal concept   | Required UI text               |
+| ------------------ | ------------------------------ |
+| Free Money         | `свободные деньги`             |
+| Financial Period   | `период`                       |
+| Mandatory Payments | `обязательные расходы`         |
+| Everyday Expenses  | `повседневные расходы`         |
+| One-off Expenses   | `разовые расходы`              |
+| Impulse Purchases  | `импульсивные покупки`         |
+| Add Expense        | `добавить расход`              |
+| Home               | `главная`                      |
+| Period             | `период`                       |
+| More               | `ещё`                          |
+| Planned            | `предстоит`                    |
+| Paid               | `оплачено`                     |
+| Backup             | `резервная копия`              |
+| Restore Backup     | `восстановить резервную копию` |
 
 Do not replace these terms with synonyms without an explicit product decision.
 
 ## 4. Categories
 
-Categories are displayed in English and lowercase.
+Categories are displayed in Russian and lowercase.
 
-The initial category list is:
+The confirmed initial category list is:
 
-- `food`
-- `transport`
-- `home & hygiene`
-- `padel`
-- `beauty`
-- `health`
-- `shopping`
-- `entertainment`
-- `rent`
-- `subscriptions`
-- `regular payments`
-- `split`
-- `debt`
+- `еда`
+- `транспорт`
+- `дом и гигиена`
+- `падел`
+- `красота`
+- `здоровье`
+- `покупки`
+- `развлечения`
+- `аренда`
+- `подписки`
+- `регулярные платежи`
+- `сплит`
+- `долг`
+- `услуги`
 
 Categories are analytical labels only.
 
 A category does not determine financial behaviour. Expense type determines financial behaviour.
 
-The user may add, rename and delete categories.
+The user may add, rename, reorder and delete categories. A category may belong to multiple expense types, and those types can be edited.
 
-Deleting a category must not delete existing expenses. Existing expenses may retain the old category value until edited.
+Deleting a category must not delete existing expenses. A category cannot be deleted while it has an active everyday limit or everyday spending in the current period. Existing expenses in completed periods retain their original category value.
+
+Renaming a category updates the current period, drafts and future operations. Completed periods remain unchanged.
 
 ## 5. Number formatting
 
@@ -436,8 +439,7 @@ Purpose: provide infrequent management actions.
 
 Contains:
 
-- categories;
-- mandatory payment drafts;
+- combined category and mandatory-expense settings;
 - period history;
 - backup.
 
@@ -452,7 +454,7 @@ The screen must support:
 - renaming a category;
 - deleting a category.
 
-Category names remain English and lowercase.
+Category names remain Russian and lowercase.
 
 ### 11.7 Mandatory payment drafts
 
