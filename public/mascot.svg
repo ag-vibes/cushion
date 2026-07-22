@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 150" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 140" role="img" aria-labelledby="title">
   <title id="title">cushion</title>
-  <path d="M27 20c16-5 24 9 39 6 10-2 18-5 29-2 15 4 25-10 39-3 8 4 8 15 4 25-5 12-2 24-2 35s-3 20 2 32c4 10 3 21-5 25-14 7-24-7-39-3-10 3-19 1-29-1-15-3-24 11-39 5-9-4-9-15-5-26 5-11 2-22 2-33s3-22-2-34c-4-10-3-21 6-26Z" fill="#fffaf1" stroke="#2b2420" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M34 34c5 1 8 4 10 8M31 40c4 1 7 4 9 8M125 34c-5 1-8 4-10 8M128 40c-4 1-7 4-9 8M34 119c5-1 8-4 10-8M31 113c4-1 7-4 9-8M125 119c-5-1-8-4-10-8M128 113c-4-1-7-4-9-8" fill="none" stroke="#2b2420" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="61" cy="73" r="4.5" fill="#2b2420"/>
-  <circle cx="99" cy="73" r="4.5" fill="#2b2420"/>
-  <path d="M70 88c6 7 14 7 20 0" fill="none" stroke="#2b2420" stroke-width="4" stroke-linecap="round"/>
+  <path d="M25 20c17-7 29 9 47 7 13-2 24-4 37-3 19 2 31-11 47-3 9 5 9 16 5 26-5 12-3 21-3 29 0 10-2 18 3 29 5 11 4 22-5 27-16 8-28-6-47-3-13 2-24 1-37-1-18-3-30 12-47 5-10-4-10-16-5-27 5-11 3-20 3-29 0-10 2-19-3-30-5-11-4-22 5-27Z" fill="#fffaf1" stroke="#2b2420" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M33 33c5 1 9 4 12 8M30 39c5 1 8 4 11 8M147 33c-5 1-9 4-12 8M150 39c-5 1-8 4-11 8M33 120c5-1 9-4 12-8M30 114c5-1 8-4 11-8M147 120c-5-1-9-4-12-8M150 114c-5-1-8-4-11-8" fill="none" stroke="#2b2420" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="69" cy="70" r="4.5" fill="#2b2420"/>
+  <circle cx="111" cy="70" r="4.5" fill="#2b2420"/>
+  <path d="M79 84c7 7 15 7 22 0" fill="none" stroke="#2b2420" stroke-width="4" stroke-linecap="round"/>
 </svg>
