@@ -171,17 +171,23 @@ Only one period can be current.
 
 The user creates a period after receiving salary.
 
-The creation flow must include:
+Period creation is a single-screen form. Every period contains:
 
 1. start date;
 2. next salary date;
-3. income;
-4. previous balance;
-5. mandatory payment selection;
-6. everyday limit review;
-7. known one-off expenses.
 
-The user must be able to continue without adding one-off expenses.
+For the first period, the money field is `остаток` with the explanation `сколько денег доступно до следующей зарплаты`. It becomes the opening balance; initial income is zero.
+
+For later periods, the form also contains:
+
+3. `доход в начале периода`, explained as `зарплата и другие деньги, которые уже поступили`;
+4. `предыдущий остаток`.
+
+The start date defaults to today but remains editable. After saving, the app opens `главная` and the user adds expenses separately.
+
+For a subsequent period, a positive final free-money amount from the previous period is offered as a grey previous-balance suggestion. Zero or a negative amount produces a `0` suggestion. The user may replace it.
+
+Mandatory expenses and one-off expenses are not copied automatically. Everyday limits from the previous period are copied with their spending reset to zero and remain editable on `период`.
 
 ### 6.3 Previous balance
 
@@ -280,9 +286,9 @@ Rules:
 
 #### Everyday limit drafts
 
-Limits from the previous period are copied into the new-period setup as editable drafts.
+Limits from the previous period are copied into the new period with spending reset to zero. The user may edit them on `период`.
 
-The user reviews and edits them before the period starts.
+If an everyday expense is added to a category whose current-period limit is zero or absent, that first expense creates a limit equal to its amount. If a non-zero limit already exists, overspending must not increase it: the remaining amount becomes negative and is shown in the danger colour.
 
 ### 7.3 One-off expenses
 
@@ -353,9 +359,8 @@ The UI must update free money immediately after every relevant change.
 ```text
 receive salary
 → create period
-→ choose mandatory payments from drafts
-→ review everyday limits
-→ add known one-off expenses
+→ view the created period on главная
+→ add expenses or adjust limits when needed
 → use the app during the period
 → create the next period
 ```
@@ -429,9 +434,7 @@ Creating the next period is available from this screen.
 
 Purpose: create the next financial period.
 
-The flow follows the order defined in section 6.2.
-
-The user must review mandatory payment drafts and everyday limit drafts before confirming.
+The screen contains only the four fields defined in section 6.2 and one `создать период` action. Saving opens `главная`.
 
 ### 11.5 Ещё
 
@@ -513,6 +516,8 @@ Required validation:
 - everyday limit must not be negative;
 - backup file must match the expected Cushion backup structure.
 
+Every date field uses the same numeric input behaviour: typing `04082026` displays `04.08.2026`, non-digit characters are ignored, input is limited to eight digits, and the completed value must be a real calendar date.
+
 Errors must be shown in Russian and start with a lowercase letter.
 
 User input must not be lost after a validation error.
@@ -536,12 +541,12 @@ All empty-state text must follow the lowercase rule.
 The MVP is ready for use when the user can:
 
 1. create a financial period;
-2. select mandatory payment drafts manually;
-3. review everyday limits;
+2. use saved mandatory-expense amounts as optional suggestions;
+3. edit copied everyday limits on the current period;
 4. add all four expense types;
 5. see free money update correctly;
 6. mark mandatory and one-off expenses as paid without double subtraction;
 7. create the next period while preserving history;
-8. manage English-language categories;
+8. manage Russian-language categories;
 9. create and restore a JSON backup;
 10. use the complete interface in Russian with lowercase UI labels.
