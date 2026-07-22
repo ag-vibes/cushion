@@ -439,6 +439,8 @@ Must support:
 
 The first section is `скорректировать внесённые расходы`. It contains only actual expense entries, never reusable limit settings. The `изменить период` section follows it.
 
+Deleting any expense, deleting a category, clearing the current period or replacing local data from a backup always requires an in-app confirmation. Native browser confirmation dialogs are not used.
+
 ### 11.4 Создание периода
 
 Purpose: create the next financial period.
