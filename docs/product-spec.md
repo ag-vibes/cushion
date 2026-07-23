@@ -319,7 +319,8 @@ reduces an automatic limit to zero, the automatic limit is removed and the
 category returns to the state where no limit has been formed yet. A fixed zero
 remains saved as the user's explicit rule. Until that category has an expense,
 it is not shown on the main screen; a later expense is treated as overspending
-against the fixed zero.
+against the fixed zero. The grey zero placeholder is not a saved value: the
+user must explicitly enter `0` and save it to create a fixed zero limit.
 
 ### 7.3 One-off expenses
 
