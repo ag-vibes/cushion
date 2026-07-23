@@ -48,7 +48,12 @@ export type EverydayLimit = {
   id: string;
   category: string;
   limit: number;
-  expenses: { id: string; amount: number; date?: string }[];
+  expenses: {
+    id: string;
+    amount: number;
+    createdAt?: string;
+    date?: string;
+  }[];
 };
 export type Period = {
   id: string;
@@ -186,7 +191,12 @@ export const stillPlanned = (item: EverydayLimit) => item.limit - spent(item);
 export const addEverydayExpense = (
   items: EverydayLimit[],
   category: string,
-  expense: { id: string; amount: number; date?: string },
+  expense: {
+    id: string;
+    amount: number;
+    createdAt?: string;
+    date?: string;
+  },
   newLimitId: string,
 ) => {
   const target = items.find((item) => item.category === category);

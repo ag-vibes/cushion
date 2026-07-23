@@ -45,6 +45,18 @@ const dateLabel = (s: string) =>
     month: "long",
   });
 const backupDateLabel = (s: string) => `${dateLabel(s)} ${s.slice(0, 4)}`;
+const expenseMomentLabel = (createdAt: string) => {
+  const date = new Date(createdAt);
+  const day = date.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+  });
+  const time = date.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${day} ${time}`;
+};
 const num = (v: FormDataEntryValue | null) =>
   Number(
     String(v ?? "")
@@ -134,6 +146,9 @@ export function App() {
     }, 60_000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [page]);
   const update = (next: AppData, msg = "") => {
     const settled = settleScheduledOneOffExpenses(next, todayIso());
     setData(settled);
@@ -146,6 +161,13 @@ export function App() {
   if (!data) return <main className="center">загрузка…</main>;
   const current = data.periods.find((p) => p.current);
   const currentState = current ? periodState(current, todayIso()) : undefined;
+  const morePages: Page[] = [
+    "more",
+    "categories",
+    "wishlist",
+    "history",
+    "backup",
+  ];
   const body =
     page === "create" ? (
       <CreatePeriod
@@ -220,14 +242,7 @@ export function App() {
       </header>
       {notice && <div className="notice">{notice}</div>}
       <main>{body}</main>
-      {![
-        "create",
-        "add",
-        "categories",
-        "wishlist",
-        "history",
-        "backup",
-      ].includes(page) && (
+      {!["create", "add"].includes(page) && (
         <nav>
           <button
             className={page === "home" ? "active" : ""}
@@ -242,7 +257,7 @@ export function App() {
             период
           </button>
           <button
-            className={page === "more" ? "active" : ""}
+            className={morePages.includes(page) ? "active" : ""}
             onClick={() => setPage("more")}
           >
             ещё
@@ -450,12 +465,17 @@ function Groups({
     id: string;
     category: string;
     amount: number;
+    createdAt?: string;
     date?: string;
   }) => (
     <div className="row" key={expense.id}>
       <span>
         {expense.category}
-        {expense.date && <small>{dateLabel(expense.date)}</small>}
+        {expense.createdAt ? (
+          <small>{expenseMomentLabel(expense.createdAt)}</small>
+        ) : (
+          expense.date && <small>{dateLabel(expense.date)}</small>
+        )}
       </span>
       <span>
         {money(expense.amount)}{" "}
@@ -779,7 +799,6 @@ export function AddExpense({
   const [type, setType] = useState("everyday");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState<Status>("предстоит");
-  const [everydayDate, setEverydayDate] = useState(toRuDate(todayIso()));
   const [oneOffDate, setOneOffDate] = useState("");
   const [error, setError] = useState("");
   const draftAmount =
@@ -803,11 +822,6 @@ export function AddExpense({
     let p = period;
     let everydayLimits = data.everydayLimits;
     if (type === "everyday") {
-      const date = fromRuDate(everydayDate);
-      if (!date) {
-        setError("введите существующую дату");
-        return;
-      }
       const savedLimit = data.everydayLimits.find(
         (item) => item.category === category,
       );
@@ -827,7 +841,7 @@ export function AddExpense({
         everyday: addEverydayExpense(
           baseEveryday,
           category,
-          { id: uid(), amount, date },
+          { id: uid(), amount, createdAt: new Date().toISOString() },
           uid(),
         ),
       };
@@ -946,15 +960,6 @@ export function AddExpense({
               <option>предстоит</option>
               <option>оплачено</option>
             </select>
-          </Field>
-        )}
-        {type === "everyday" && (
-          <Field label="дата">
-            <DateInput
-              name="date"
-              value={everydayDate}
-              onChange={setEverydayDate}
-            />
           </Field>
         )}
         {type === "oneOff" && status === "предстоит" && (

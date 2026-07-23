@@ -242,7 +242,13 @@ describe("period completion UI", () => {
           id: "limit",
           category: "еда",
           limit: 10000,
-          expenses: [{ id: "expense", amount: 2500 }],
+          expenses: [
+            {
+              id: "expense",
+              amount: 2500,
+              createdAt: new Date("2026-07-22T10:15:00").toISOString(),
+            },
+          ],
         },
       ],
     };
@@ -265,6 +271,7 @@ describe("period completion UI", () => {
     expect(
       screen.getByRole("button", { name: "удалить расход еда" }),
     ).toBeTruthy();
+    expect(screen.getByText("22 июля 10:15")).toBeTruthy();
     expect(
       screen.queryByRole("button", {
         name: "изменить лимит для категории еда",
@@ -388,9 +395,9 @@ describe("period completion UI", () => {
 });
 
 describe("expense creation", () => {
-  it("defaults an everyday expense date to today and saves it", () => {
+  it("records the current moment without showing a date field", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-07-23T12:00:00"));
+    vi.setSystemTime(new Date("2026-07-23T12:34:00"));
     const save = vi.fn();
     const data = makeData();
     const current = data.periods.find((item) => item.current)!;
@@ -402,10 +409,7 @@ describe("expense creation", () => {
         done={vi.fn()}
       />,
     );
-    expect(screen.getByRole("textbox", { name: "дата" })).toHaveProperty(
-      "value",
-      "23.07.2026",
-    );
+    expect(screen.queryByRole("textbox", { name: "дата" })).toBeNull();
     fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
       target: { value: "еда" },
     });
@@ -418,7 +422,10 @@ describe("expense creation", () => {
       saved.periods
         .find((item) => item.current)
         ?.everyday[0].expenses.at(-1),
-    ).toMatchObject({ amount: 1200, date: "2026-07-23" });
+    ).toMatchObject({
+      amount: 1200,
+      createdAt: new Date("2026-07-23T12:34:00").toISOString(),
+    });
   });
 
   it("hides the date for a paid one-off expense", () => {
