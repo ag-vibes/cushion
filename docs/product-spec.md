@@ -308,19 +308,22 @@ next period also converts every positive automatic limit into a fixed reusable
 limit and carries it forward. An automatic limit that returned to zero is not
 carried forward.
 
-A manually entered value, including zero, is a fixed limit. A fixed limit never
-changes because expenses are added, edited or deleted. If spending exceeds it,
-the remaining amount becomes negative and is shown in the danger colour. Thus,
-if the user manually sets a limit to zero while the category has 500 ₽ of
-spending, the app shows a 500 ₽ overspend.
+A manually entered positive value is a fixed limit. A fixed limit never changes
+because expenses are added, edited or deleted. If spending exceeds it, the
+remaining amount becomes negative and is shown in the danger colour.
 
-Automatic zero and fixed zero are different states. When deleting expenses
-reduces an automatic limit to zero, the automatic limit is removed and the
-category returns to the state where no limit has been formed yet. A fixed zero
-remains saved as the user's explicit rule. Until that category has an expense,
-it is not shown on the main screen; a later expense is treated as overspending
-against the fixed zero. The grey zero placeholder is not a saved value: the
-user must explicitly enter `0` and save it to create a fixed zero limit.
+Zero always means that no limit is set. Saving zero without current spending
+removes the limit and the category is not shown on the main screen. Saving zero
+when current-period spending exists changes the category to automatic mode and
+sets its limit to the current spending total. The automatic limit then grows or
+shrinks with expenses until the period ends. If its last expense is deleted,
+the automatic limit disappears. When the next period is created, every positive
+automatic limit is carried forward as a fixed limit with spending reset to
+zero.
+
+When loading existing data, a saved zero limit without expenses is removed. A
+saved zero limit with current-period expenses is converted to an automatic
+limit equal to those expenses.
 
 ### 7.3 One-off expenses
 
