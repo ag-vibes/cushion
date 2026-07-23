@@ -325,6 +325,10 @@ When loading existing data, a saved zero limit without expenses is removed. A
 saved zero limit with current-period expenses is converted to an automatic
 limit equal to those expenses.
 
+An expense amount must be greater than zero. A zero-value expense is not a
+financial operation and must not keep an everyday category visible. Existing
+zero-value expense records are removed when stored data is loaded.
+
 ### 7.3 One-off expenses
 
 One-off expenses are known non-recurring expenses planned for the current period.
