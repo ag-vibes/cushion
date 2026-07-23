@@ -1772,6 +1772,7 @@ export function Categories({
       {limitCategory && (
         <AmountModal
           title={limitCategory}
+          requireExplicitValue
           initial={
             data.everydayLimits.find(
               (limit) => limit.category === limitCategory,
@@ -1782,21 +1783,35 @@ export function Categories({
             const existing = data.everydayLimits.find(
               (item) => item.category === limitCategory,
             );
-            const everydayLimits = existing
-              ? data.everydayLimits.map((item) =>
-                  item.id === existing.id
-                    ? { ...item, limit, automatic: false }
-                    : item,
-                )
-              : [
-                  ...data.everydayLimits,
-                  {
-                    id: uid(),
+            const currentItem = data.periods
+              .find((period) => period.current)
+              ?.everyday.find((item) => item.category === limitCategory);
+            const currentSpent = currentItem ? spent(currentItem) : 0;
+            const nextSetting =
+              limit === 0 && currentSpent > 0
+                ? {
+                    id: existing?.id ?? uid(),
                     category: limitCategory,
-                    limit,
-                    automatic: false,
-                  },
-                ];
+                    limit: currentSpent,
+                    automatic: true,
+                  }
+                : limit > 0
+                  ? {
+                      id: existing?.id ?? uid(),
+                      category: limitCategory,
+                      limit,
+                      automatic: false,
+                    }
+                  : undefined;
+            const everydayLimits = nextSetting
+              ? existing
+                ? data.everydayLimits.map((item) =>
+                    item.id === existing.id ? nextSetting : item,
+                  )
+                : [...data.everydayLimits, nextSetting]
+              : data.everydayLimits.filter(
+                  (item) => item.category !== limitCategory,
+                );
             save(
               {
                 ...data,
@@ -1806,15 +1821,29 @@ export function Categories({
                   const current = period.everyday.find(
                     (item) => item.category === limitCategory,
                   );
+                  if (current && limit === 0 && current.expenses.length === 0)
+                    return {
+                      ...period,
+                      everyday: period.everyday.filter(
+                        (item) => item.id !== current.id,
+                      ),
+                    };
                   if (current)
                     return {
                       ...period,
                       everyday: period.everyday.map((item) =>
                         item.id === current.id
-                          ? { ...item, limit, automatic: false }
+                          ? limit === 0
+                            ? {
+                                ...item,
+                                limit: spent(item),
+                                automatic: true,
+                              }
+                            : { ...item, limit, automatic: false }
                           : item,
                       ),
                     };
+                  if (limit === 0) return period;
                   return {
                     ...period,
                     everyday: [
@@ -2084,11 +2113,13 @@ function ModalActions({ close }: { close: () => void }) {
 function AmountModal({
   title,
   initial,
+  requireExplicitValue = false,
   close,
   save,
 }: {
   title: string;
   initial: number;
+  requireExplicitValue?: boolean;
   close: () => void;
   save: (amount: number) => void;
 }) {
@@ -2102,6 +2133,8 @@ function AmountModal({
         className="form"
         onSubmit={(event) => {
           event.preventDefault();
+          if (requireExplicitValue && value.trim() === "")
+            return setError("введите сумму");
           const amount = num(value);
           if (!validateAmount(amount)) return setError("проверьте сумму");
           save(amount);

@@ -172,6 +172,37 @@ describe("period creation", () => {
       screen.getByRole("textbox", { name: "предыдущий остаток" }),
     ).toHaveProperty("placeholder", "90 000");
   });
+
+  it("carries an automatic limit into the next period as fixed", () => {
+    const onSave = vi.fn();
+    const data = makeData();
+    data.everydayLimits[0] = {
+      ...data.everydayLimits[0],
+      limit: 500,
+      automatic: true,
+    };
+    render(
+      <CreatePeriod data={data} onSave={onSave} onCancel={vi.fn()} />,
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "дата начала" }), {
+      target: { value: "01082026" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "дата следующей зарплаты" }),
+      { target: { value: "01092026" } },
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "доход в начале периода" }),
+      { target: { value: "100000" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "создать период" }));
+    expect(onSave.mock.calls[0][0].everyday[0]).toMatchObject({
+      category: "еда",
+      limit: 500,
+      automatic: false,
+      expenses: [],
+    });
+  });
 });
 
 describe("period completion UI", () => {
@@ -478,6 +509,27 @@ describe("category settings UI", () => {
     expect(input.placeholder).toBe("0");
   });
 
+  it("does not turn an untouched zero placeholder into a fixed limit", () => {
+    const save = vi.fn();
+    const data = {
+      ...makeData(),
+      everydayLimits: [],
+      periods: [
+        { ...makePeriod(true), everyday: [] },
+        { ...makePeriod(false), everyday: [] },
+      ],
+    };
+    render(<Categories data={data} save={save} back={vi.fn()} />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "изменить лимит для категории еда",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
+    expect(screen.getByText("введите сумму")).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("keeps reusable limits in settings and applies edits to the current period", () => {
     const save = vi.fn();
     const data = makeData();
@@ -521,6 +573,63 @@ describe("category settings UI", () => {
     expect(
       saved.periods.find((period) => !period.current)?.everyday[0].limit,
     ).toBe(10000);
+  });
+
+  it("returns a category with spending to automatic mode after saving zero", () => {
+    const save = vi.fn();
+    const data = makeData();
+    data.everydayLimits[0] = {
+      ...data.everydayLimits[0],
+      limit: 500,
+      automatic: true,
+    };
+    data.periods.find((period) => period.current)!.everyday[0] = {
+      ...data.periods.find((period) => period.current)!.everyday[0],
+      limit: 500,
+      automatic: true,
+      expenses: [{ id: "expense", amount: 500 }],
+    };
+    render(<Categories data={data} save={save} back={vi.fn()} />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "изменить лимит для категории еда",
+      }),
+    );
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
+    const saved = save.mock.calls[0][0] as AppData;
+    expect(saved.everydayLimits[0]).toMatchObject({
+      limit: 500,
+      automatic: true,
+    });
+    expect(
+      saved.periods.find((period) => period.current)?.everyday[0],
+    ).toMatchObject({
+      limit: 500,
+      automatic: true,
+      expenses: [{ id: "expense", amount: 500 }],
+    });
+  });
+
+  it("removes a limit after saving zero without spending", () => {
+    const save = vi.fn();
+    render(<Categories data={makeData()} save={save} back={vi.fn()} />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "изменить лимит для категории еда",
+      }),
+    );
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
+    const saved = save.mock.calls[0][0] as AppData;
+    expect(saved.everydayLimits).toEqual([]);
+    expect(
+      saved.periods.find((period) => period.current)?.everyday,
+    ).toEqual([]);
   });
 
   it("opens a compact add-category form with a short submit label", () => {

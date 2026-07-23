@@ -170,6 +170,16 @@ describe("financial calculations", () => {
     expect(
       syncAutomaticEverydaySettings([], period({ everyday: afterDelete }))[0],
     ).toMatchObject({ category: "еда", limit: 50, automatic: true });
+    const afterLastDelete = recalculateAutomaticEverydayLimits([
+      { ...afterDelete[0], expenses: [] },
+    ]);
+    expect(afterLastDelete).toEqual([]);
+    expect(
+      syncAutomaticEverydaySettings(
+        [{ id: "setting", category: "еда", limit: 50, automatic: true }],
+        period({ everyday: afterLastDelete }),
+      ),
+    ).toEqual([]);
   });
   it("keeps a fixed limit and subtracts actual overspending", () => {
     const p = period({
@@ -277,6 +287,53 @@ describe("financial calculations", () => {
     });
     expect(migrated.everydayLimits[0].automatic).toBe(true);
     expect(migrated.periods[0].everyday[0].automatic).toBe(true);
+  });
+  it("converts a saved zero with spending to an automatic limit", () => {
+    const migrated = normalizeData({
+      version: 1,
+      categories: ["еда"],
+      categoryTypes: { еда: ["everyday"] },
+      everydayLimits: [
+        { id: "setting", category: "еда", limit: 0, automatic: false },
+      ],
+      drafts: [],
+      periods: [
+        period({
+          everyday: [
+            {
+              id: "limit",
+              category: "еда",
+              limit: 0,
+              automatic: false,
+              expenses: [{ id: "expense", amount: 500 }],
+            },
+          ],
+        }),
+      ],
+    });
+    expect(migrated.everydayLimits[0]).toMatchObject({
+      limit: 500,
+      automatic: true,
+    });
+    expect(migrated.periods[0].everyday[0]).toMatchObject({
+      limit: 500,
+      automatic: true,
+    });
+    expect(stillPlanned(migrated.periods[0].everyday[0])).toBe(0);
+  });
+  it("removes a saved zero without spending", () => {
+    const migrated = normalizeData({
+      version: 1,
+      categories: ["еда"],
+      categoryTypes: { еда: ["everyday"] },
+      everydayLimits: [
+        { id: "setting", category: "еда", limit: 0, automatic: false },
+      ],
+      drafts: [],
+      periods: [period({ everyday: [] })],
+    });
+    expect(migrated.everydayLimits).toEqual([]);
+    expect(migrated.periods[0].everyday).toEqual([]);
   });
   it("keeps salary day active and finishes the period the next day", () => {
     const current = period({ nextSalaryDate: "2026-08-04" });

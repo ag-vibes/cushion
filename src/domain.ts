@@ -163,13 +163,25 @@ export const normalizeData = (raw: unknown): AppData => {
   const periods = (source.periods ?? []).map((period) => ({
     ...period,
     mandatory: period.mandatory.map(expense),
-    everyday: period.everyday.map((item) => ({
-      ...item,
-      category: translateCategory(item.category),
-      automatic:
-        item.automatic === true ||
-        likelyAutomaticCategories.has(translateCategory(item.category)),
-    })),
+    everyday: period.everyday
+      .filter((item) => item.limit > 0 || item.expenses.length > 0)
+      .map((item) => {
+        const automatic =
+          item.automatic === true ||
+          likelyAutomaticCategories.has(translateCategory(item.category)) ||
+          (period.current && item.limit === 0 && item.expenses.length > 0);
+        return {
+          ...item,
+          category: translateCategory(item.category),
+          limit: automatic
+            ? item.expenses.reduce(
+                (sum, expenseItem) => sum + expenseItem.amount,
+                0,
+              )
+            : item.limit,
+          automatic,
+        };
+      }),
     oneOff: period.oneOff.map(expense),
     impulse: period.impulse.map(expense),
   }));
@@ -178,13 +190,33 @@ export const normalizeData = (raw: unknown): AppData => {
     periods[periods.length - 1]?.everyday ??
     [];
   const everydayLimits = Array.isArray(source.everydayLimits)
-    ? source.everydayLimits.map((item) => ({
-        ...item,
-        category: translateCategory(item.category),
-        automatic:
-          item.automatic === true ||
-          likelyAutomaticCategories.has(translateCategory(item.category)),
-      }))
+    ? source.everydayLimits
+        .flatMap((item) => {
+          const category = translateCategory(item.category);
+          const currentItem = periods
+            .find((period) => period.current)
+            ?.everyday.find((limit) => limit.category === category);
+          if (item.limit === 0) {
+            if (!currentItem || currentItem.expenses.length === 0) return [];
+            return [
+              {
+                ...item,
+                category,
+                limit: currentItem.limit,
+                automatic: true,
+              },
+            ];
+          }
+          return [
+            {
+              ...item,
+              category,
+              automatic:
+                item.automatic === true ||
+                likelyAutomaticCategories.has(category),
+            },
+          ];
+        })
     : legacyLimitSource
         .filter((item) => item.limit > 0)
         .map(({ id, category, limit }) => ({ id, category, limit }));
@@ -262,16 +294,26 @@ export const addEverydayExpense = (
 export const recalculateAutomaticEverydayLimits = (
   items: EverydayLimit[],
 ) =>
-  items.map((item) =>
-    item.automatic ? { ...item, limit: spent(item) } : item,
-  );
+  items
+    .map((item) =>
+      item.automatic ? { ...item, limit: spent(item) } : item,
+    )
+    .filter((item) => item.limit > 0 || item.expenses.length > 0);
 export const syncAutomaticEverydaySettings = (
   settings: EverydayLimitSetting[],
   period: Period,
 ) => {
-  const next = [...settings];
+  const automaticCategories = new Set(
+    period.everyday
+      .filter((item) => item.automatic && item.limit > 0)
+      .map((item) => item.category),
+  );
+  const next = settings.filter(
+    (setting) =>
+      !setting.automatic || automaticCategories.has(setting.category),
+  );
   period.everyday
-    .filter((item) => item.automatic)
+    .filter((item) => item.automatic && item.limit > 0)
     .forEach((item) => {
       const existing = next.find(
         (setting) => setting.category === item.category,
