@@ -308,9 +308,18 @@ next period also converts every positive automatic limit into a fixed reusable
 limit and carries it forward. An automatic limit that returned to zero is not
 carried forward.
 
-A fixed limit never changes because expenses are added, edited or deleted. If
-spending exceeds it, the remaining amount becomes negative and is shown in the
-danger colour.
+A manually entered value, including zero, is a fixed limit. A fixed limit never
+changes because expenses are added, edited or deleted. If spending exceeds it,
+the remaining amount becomes negative and is shown in the danger colour. Thus,
+if the user manually sets a limit to zero while the category has 500 ₽ of
+spending, the app shows a 500 ₽ overspend.
+
+Automatic zero and fixed zero are different states. When deleting expenses
+reduces an automatic limit to zero, the automatic limit is removed and the
+category returns to the state where no limit has been formed yet. A fixed zero
+remains saved as the user's explicit rule. Until that category has an expense,
+it is not shown on the main screen; a later expense is treated as overspending
+against the fixed zero.
 
 ### 7.3 One-off expenses
 
