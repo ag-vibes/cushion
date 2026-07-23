@@ -403,6 +403,7 @@ nav button {
   font: inherit;
   font-size: 15px;
   font-weight: 500;
+  -webkit-tap-highlight-color: transparent;
 }
 nav button.active {
   color: var(--color-primary-text);
