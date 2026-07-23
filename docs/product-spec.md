@@ -297,7 +297,20 @@ Rules:
 
 Everyday limits are reusable budget settings rather than values configured separately for every period. They are managed in `ещё` → `настройка категорий`, applied to the current period immediately and copied into each new period with spending reset to zero. A completed period keeps its own historical limit snapshot.
 
-If an everyday expense is added to a category whose reusable limit is zero or absent, that first expense creates a reusable limit equal to its amount and applies it to the current period. If a non-zero limit already exists, overspending must not increase it: the remaining amount becomes negative and is shown in the danger colour.
+If an everyday expense is added to a category without a confirmed limit, that
+category receives an automatic limit equal to its current-period spending.
+During that period, adding, editing or deleting expenses grows or shrinks the
+automatic limit with the spending total. At 100% usage the progress bar uses
+the danger colour, but the remaining amount is zero.
+
+Editing an automatic limit manually makes it fixed immediately. Creating the
+next period also converts every positive automatic limit into a fixed reusable
+limit and carries it forward. An automatic limit that returned to zero is not
+carried forward.
+
+A fixed limit never changes because expenses are added, edited or deleted. If
+spending exceeds it, the remaining amount becomes negative and is shown in the
+danger colour.
 
 ### 7.3 One-off expenses
 
@@ -350,19 +363,14 @@ free money =
 income
 + previous balance
 - planned mandatory payments
-- everyday spent
-- everyday still planned
+- max(everyday limit, everyday spent)
 - planned one-off expenses
 - impulse purchases
 ```
 
-Because:
-
-```text
-everyday spent + everyday still planned = everyday limit
-```
-
-the entire everyday limit remains reserved until the user changes the limit.
+The full everyday limit is reserved while spending stays within it. If actual
+spending exceeds a fixed limit, free money uses the larger actual amount so it
+is never overstated.
 
 Mandatory and one-off expenses are counted once regardless of status.
 
@@ -619,3 +627,5 @@ The MVP is ready for use when the user can:
 8. manage Russian-language categories;
 9. create and restore a JSON backup;
 10. use the complete interface in Russian with lowercase UI labels.
+11. build an automatic everyday limit from first-period spending and see it
+    become fixed in the next period.
