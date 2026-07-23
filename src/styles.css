@@ -362,6 +362,10 @@ button {
   background: #e2eedc;
   color: var(--color-ink-muted);
 }
+.status.paid {
+  background: #ede9e4;
+  color: var(--color-ink-muted);
+}
 .expense-trailing {
   display: inline-flex;
   align-items: center;
@@ -534,9 +538,6 @@ select {
   display: grid;
   gap: 8px;
   margin-top: 14px;
-}
-.settings-card {
-  margin-bottom: 28px;
 }
 .settings-card h2 {
   margin-bottom: 8px;

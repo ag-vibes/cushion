@@ -48,7 +48,7 @@ export type EverydayLimit = {
   id: string;
   category: string;
   limit: number;
-  expenses: { id: string; amount: number }[];
+  expenses: { id: string; amount: number; date?: string }[];
 };
 export type Period = {
   id: string;
@@ -74,6 +74,11 @@ export type EverydayLimitSetting = {
   category: string;
   limit: number;
 };
+export type WishlistItem = {
+  id: string;
+  name: string;
+  amount: number;
+};
 export type AppData = {
   version: 1;
   lastBackupDate?: string;
@@ -81,6 +86,7 @@ export type AppData = {
   categoryTypes: Record<string, ExpenseKind[]>;
   everydayLimits: EverydayLimitSetting[];
   drafts: Draft[];
+  wishlist: WishlistItem[];
   periods: Period[];
 };
 export const emptyData = (): AppData => ({
@@ -89,6 +95,7 @@ export const emptyData = (): AppData => ({
   categoryTypes: structuredClone(defaultCategoryTypes),
   everydayLimits: [],
   drafts: [],
+  wishlist: [],
   periods: [],
 });
 
@@ -155,6 +162,15 @@ export const normalizeData = (raw: unknown): AppData => {
       ...item,
       category: translateCategory(item.category),
     })),
+    wishlist: Array.isArray(source.wishlist)
+      ? source.wishlist.filter(
+          (item) =>
+            item &&
+            typeof item.id === "string" &&
+            typeof item.name === "string" &&
+            typeof item.amount === "number",
+        )
+      : [],
     periods,
   };
 };
@@ -170,7 +186,7 @@ export const stillPlanned = (item: EverydayLimit) => item.limit - spent(item);
 export const addEverydayExpense = (
   items: EverydayLimit[],
   category: string,
-  expense: { id: string; amount: number },
+  expense: { id: string; amount: number; date?: string },
   newLimitId: string,
 ) => {
   const target = items.find((item) => item.category === category);
@@ -225,6 +241,28 @@ export const periodState = (period: Period, today: string): PeriodState => {
   if (today < period.nextSalaryDate) return "active";
   if (today === period.nextSalaryDate) return "salary-day";
   return "finished";
+};
+export const settleScheduledOneOffExpenses = (
+  data: AppData,
+  today: string,
+): AppData => {
+  let changed = false;
+  const periods = data.periods.map((period) => {
+    if (!period.current) return period;
+    const oneOff = period.oneOff.map((expense) => {
+      if (
+        expense.status === "предстоит" &&
+        expense.date &&
+        expense.date <= today
+      ) {
+        changed = true;
+        return { ...expense, status: "оплачено" as const, date: undefined };
+      }
+      return expense;
+    });
+    return changed ? { ...period, oneOff } : period;
+  });
+  return changed ? { ...data, periods } : data;
 };
 export const validBackup = (v: unknown): v is AppData => {
   if (!v || typeof v !== "object") return false;

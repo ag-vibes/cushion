@@ -11,6 +11,7 @@ import {
   stillPlanned,
   suggestedPreviousBalance,
   periodState,
+  settleScheduledOneOffExpenses,
   validBackup,
   type Period,
 } from "./domain";
@@ -72,6 +73,40 @@ describe("financial calculations", () => {
       oneOff: [{ ...a.oneOff[0], status: "оплачено" as const }],
     };
     expect(freeMoney(a)).toBe(freeMoney(b));
+  });
+  it("settles a dated one-off expense without changing free money", () => {
+    const current = period({
+      oneOff: [
+        {
+          id: "o",
+          category: "здоровье",
+          amount: 8000,
+          status: "предстоит",
+          date: "2026-07-23",
+        },
+        {
+          id: "later",
+          category: "покупки",
+          amount: 3000,
+          status: "предстоит",
+          date: "2026-07-24",
+        },
+        {
+          id: "undated",
+          category: "услуги",
+          amount: 2000,
+          status: "предстоит",
+        },
+      ],
+    });
+    const data = { ...emptyData(), periods: [current] };
+    const settled = settleScheduledOneOffExpenses(data, "2026-07-23");
+    expect(settled.periods[0].oneOff).toEqual([
+      expect.objectContaining({ id: "o", status: "оплачено", date: undefined }),
+      expect.objectContaining({ id: "later", status: "предстоит" }),
+      expect.objectContaining({ id: "undated", status: "предстоит" }),
+    ]);
+    expect(freeMoney(settled.periods[0])).toBe(freeMoney(current));
   });
   it("allows negative still planned after overspending", () => {
     const l = {
@@ -165,6 +200,7 @@ describe("financial calculations", () => {
     expect(migrated.everydayLimits).toEqual([
       { id: "e", category: "еда", limit: 1000 },
     ]);
+    expect(migrated.wishlist).toEqual([]);
   });
   it("does not restore a category that the user deleted", () => {
     const data = normalizeData({

@@ -7,6 +7,7 @@ import {
   freeMoney,
   normalizeData,
   periodState,
+  settleScheduledOneOffExpenses,
   spent,
   stillPlanned,
   suggestedPreviousBalance,
@@ -18,6 +19,7 @@ import {
   type ExpenseKind,
   type Period,
   type Status,
+  type WishlistItem,
 } from "./domain";
 import { IndexedDbStorage } from "./storage";
 type Page =
@@ -27,6 +29,7 @@ type Page =
   | "add"
   | "create"
   | "categories"
+  | "wishlist"
   | "history"
   | "backup";
 const storage = new IndexedDbStorage();
@@ -114,11 +117,27 @@ export function App() {
   const [page, setPage] = useState<Page>("home");
   const [notice, setNotice] = useState("");
   useEffect(() => {
-    storage.load().then(setData);
+    storage.load().then((loaded) => {
+      const settled = settleScheduledOneOffExpenses(loaded, todayIso());
+      setData(settled);
+      if (settled !== loaded) storage.save(settled);
+    });
+  }, []);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setData((current) => {
+        if (!current) return current;
+        const settled = settleScheduledOneOffExpenses(current, todayIso());
+        if (settled !== current) storage.save(settled);
+        return settled;
+      });
+    }, 60_000);
+    return () => window.clearInterval(timer);
   }, []);
   const update = (next: AppData, msg = "") => {
-    setData(next);
-    storage.save(next);
+    const settled = settleScheduledOneOffExpenses(next, todayIso());
+    setData(settled);
+    storage.save(settled);
     if (msg) {
       setNotice(msg);
       setTimeout(() => setNotice(""), 2500);
@@ -159,6 +178,8 @@ export function App() {
       <More go={setPage} />
     ) : page === "categories" ? (
       <Categories data={data} save={update} back={() => setPage("more")} />
+    ) : page === "wishlist" ? (
+      <Wishlist data={data} save={update} back={() => setPage("more")} />
     ) : page === "history" ? (
       <History
         periods={data.periods.filter((p) => !p.current)}
@@ -199,7 +220,14 @@ export function App() {
       </header>
       {notice && <div className="notice">{notice}</div>}
       <main>{body}</main>
-      {!["create", "add", "categories", "history", "backup"].includes(page) && (
+      {![
+        "create",
+        "add",
+        "categories",
+        "wishlist",
+        "history",
+        "backup",
+      ].includes(page) && (
         <nav>
           <button
             className={page === "home" ? "active" : ""}
@@ -326,18 +354,18 @@ function Groups({
   }>();
   const status = (group: "mandatory" | "oneOff", e: Expense) => {
     const interactive = (editable || statusEditable) && onChange;
+    const className = `status ${e.status === "оплачено" ? "paid" : "planned"}`;
     return interactive ? (
       <button
-        className="status"
+        className={className}
         onClick={() =>
           onChange({
             ...p,
             [group]: p[group].map((x) =>
               x.id === e.id
-                ? {
-                    ...x,
-                    status: x.status === "оплачено" ? "предстоит" : "оплачено",
-                  }
+                ? x.status === "оплачено"
+                  ? { ...x, status: "предстоит", date: undefined }
+                  : { ...x, status: "оплачено", date: undefined }
                 : x,
             ),
           })
@@ -346,7 +374,7 @@ function Groups({
         {e.status}
       </button>
     ) : (
-      <span className="status">{e.status}</span>
+      <span className={className}>{e.status}</span>
     );
   };
   const editAmount = (
@@ -422,9 +450,13 @@ function Groups({
     id: string;
     category: string;
     amount: number;
+    date?: string;
   }) => (
     <div className="row" key={expense.id}>
-      <span>{expense.category}</span>
+      <span>
+        {expense.category}
+        {expense.date && <small>{dateLabel(expense.date)}</small>}
+      </span>
       <span>
         {money(expense.amount)}{" "}
         <button
@@ -603,7 +635,7 @@ export function SettingsRow({
         {label}
         {meta && <small>{meta}</small>}
       </span>
-      <span>{trailing}</span>
+      <span className="expense-trailing">{trailing}</span>
     </div>
   );
 }
@@ -733,7 +765,7 @@ export function CreatePeriod({
   );
 }
 
-function AddExpense({
+export function AddExpense({
   data,
   period,
   save,
@@ -746,7 +778,9 @@ function AddExpense({
 }) {
   const [type, setType] = useState("everyday");
   const [category, setCategory] = useState("");
-  const [expenseDate, setExpenseDate] = useState("");
+  const [status, setStatus] = useState<Status>("предстоит");
+  const [everydayDate, setEverydayDate] = useState(toRuDate(todayIso()));
+  const [oneOffDate, setOneOffDate] = useState("");
   const [error, setError] = useState("");
   const draftAmount =
     type === "mandatory"
@@ -769,6 +803,11 @@ function AddExpense({
     let p = period;
     let everydayLimits = data.everydayLimits;
     if (type === "everyday") {
+      const date = fromRuDate(everydayDate);
+      if (!date) {
+        setError("введите существующую дату");
+        return;
+      }
       const savedLimit = data.everydayLimits.find(
         (item) => item.category === category,
       );
@@ -788,7 +827,7 @@ function AddExpense({
         everyday: addEverydayExpense(
           baseEveryday,
           category,
-          { id: uid(), amount },
+          { id: uid(), amount, date },
           uid(),
         ),
       };
@@ -800,8 +839,16 @@ function AddExpense({
           : [...data.everydayLimits, { id: uid(), category, limit: amount }];
       }
     } else {
-      const date = type === "oneOff" ? fromRuDate(expenseDate) : undefined;
-      if (type === "oneOff" && expenseDate && !date) {
+      const date =
+        type === "oneOff" && status === "предстоит"
+          ? fromRuDate(oneOffDate)
+          : undefined;
+      if (
+        type === "oneOff" &&
+        status === "предстоит" &&
+        oneOffDate &&
+        !date
+      ) {
         setError("введите существующую дату");
         return;
       }
@@ -811,7 +858,7 @@ function AddExpense({
         amount,
         status:
           type === "mandatory" || type === "oneOff"
-            ? (String(f.get("status")) as Status)
+            ? status
             : undefined,
         date,
       };
@@ -847,6 +894,8 @@ function AddExpense({
             onChange={(e) => {
               setType(e.target.value);
               setCategory("");
+              setStatus("предстоит");
+              setOneOffDate("");
             }}
           >
             <option value="mandatory">обязательные расходы</option>
@@ -885,18 +934,35 @@ function AddExpense({
         </Field>
         {(type === "mandatory" || type === "oneOff") && (
           <Field label="статус">
-            <select name="status">
+            <select
+              name="status"
+              value={status}
+              onChange={(event) => {
+                const next = event.target.value as Status;
+                setStatus(next);
+                if (next === "оплачено") setOneOffDate("");
+              }}
+            >
               <option>предстоит</option>
               <option>оплачено</option>
             </select>
           </Field>
         )}
-        {type === "oneOff" && (
+        {type === "everyday" && (
+          <Field label="дата">
+            <DateInput
+              name="date"
+              value={everydayDate}
+              onChange={setEverydayDate}
+            />
+          </Field>
+        )}
+        {type === "oneOff" && status === "предстоит" && (
           <Field label="дата, необязательно">
             <DateInput
               name="date"
-              value={expenseDate}
-              onChange={setExpenseDate}
+              value={oneOffDate}
+              onChange={setOneOffDate}
             />
           </Field>
         )}
@@ -1124,6 +1190,7 @@ function More({ go }: { go: (p: Page) => void }) {
       <div className="menu">
         {[
           ["categories", "настройка категорий"],
+          ["wishlist", "вишлист"],
           ["history", "история периодов"],
           ["backup", "резервная копия"],
         ].map(([p, t]) => (
@@ -1136,6 +1203,166 @@ function More({ go }: { go: (p: Page) => void }) {
     </section>
   );
 }
+
+export function Wishlist({
+  data,
+  save,
+  back,
+}: {
+  data: AppData;
+  save: (d: AppData, m?: string) => void;
+  back: () => void;
+}) {
+  const [editing, setEditing] = useState<WishlistItem>();
+  const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState<WishlistItem>();
+
+  const ItemForm = ({
+    item,
+    close,
+  }: {
+    item?: WishlistItem;
+    close: () => void;
+  }) => {
+    const [name, setName] = useState(item?.name ?? "");
+    const [amount, setAmount] = useState(
+      item ? formatInputAmount(String(item.amount)) : "",
+    );
+    const [error, setError] = useState("");
+    return (
+      <form
+        className="form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const trimmedName = name.trim().toLowerCase();
+          const parsedAmount = num(amount);
+          if (!trimmedName) return setError("введите название");
+          if (!validateAmount(parsedAmount))
+            return setError("проверьте сумму");
+          const next = item
+            ? data.wishlist.map((entry) =>
+                entry.id === item.id
+                  ? { ...entry, name: trimmedName, amount: parsedAmount }
+                  : entry,
+              )
+            : [
+                ...data.wishlist,
+                { id: uid(), name: trimmedName, amount: parsedAmount },
+              ];
+          save(
+            { ...data, wishlist: next },
+            item ? "позиция обновлена" : "позиция добавлена в вишлист",
+          );
+          close();
+        }}
+      >
+        <Field label="название">
+          <input
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+        <Field label="сумма">
+          <input
+            inputMode="decimal"
+            placeholder="0"
+            value={amount}
+            onChange={(event) =>
+              setAmount(formatInputAmount(event.target.value))
+            }
+          />
+        </Field>
+        {error && <p className="error">{error}</p>}
+        <ModalActions close={close} />
+      </form>
+    );
+  };
+
+  return (
+    <section>
+      <Top title="вишлист" back={back} />
+      <div className="card">
+        {data.wishlist.length ? (
+          data.wishlist.map((item) => (
+            <SettingsRow
+              key={item.id}
+              label={item.name}
+              trailing={
+                <>
+                  {money(item.amount)}
+                  <button
+                    className="icon"
+                    aria-label={`изменить позицию ${item.name}`}
+                    onClick={() => setEditing(item)}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    className="icon"
+                    aria-label={`удалить позицию ${item.name}`}
+                    onClick={() => setDeleting(item)}
+                  >
+                    ×
+                  </button>
+                </>
+              }
+            />
+          ))
+        ) : (
+          <p className="muted">вишлист пока пуст</p>
+        )}
+      </div>
+      <button className="secondary" onClick={() => setAdding(true)}>
+        добавить желание
+      </button>
+      {adding && (
+        <Modal title="добавить в вишлист" onClose={() => setAdding(false)}>
+          <ItemForm close={() => setAdding(false)} />
+        </Modal>
+      )}
+      {editing && (
+        <Modal title={editing.name} onClose={() => setEditing(undefined)}>
+          <ItemForm item={editing} close={() => setEditing(undefined)} />
+        </Modal>
+      )}
+      {deleting && (
+        <Modal
+          title="удалить из вишлиста?"
+          onClose={() => setDeleting(undefined)}
+        >
+          <div className="actions-row">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setDeleting(undefined)}
+            >
+              отмена
+            </button>
+            <button
+              className="danger-action"
+              onClick={() => {
+                save(
+                  {
+                    ...data,
+                    wishlist: data.wishlist.filter(
+                      (item) => item.id !== deleting.id,
+                    ),
+                  },
+                  "позиция удалена",
+                );
+                setDeleting(undefined);
+              }}
+            >
+              удалить
+            </button>
+          </div>
+        </Modal>
+      )}
+    </section>
+  );
+}
+
 const expenseTypeOptions: [ExpenseKind, string][] = [
   ["mandatory", "обязательные расходы"],
   ["everyday", "повседневные расходы"],
@@ -1708,7 +1935,7 @@ export function Backup({
       <div className="card">
         <h2>сохранить данные</h2>
         <p className="muted">
-          создайте файл со всеми периодами, категориями и расходами
+          создайте файл со всеми периодами, категориями, расходами и вишлистом
         </p>
         <button className="secondary" onClick={download}>
           создать резервную копию

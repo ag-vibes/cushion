@@ -2,10 +2,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   Categories,
+  AddExpense,
   Backup,
   CreatePeriod,
   Home,
   PeriodScreen,
+  Wishlist,
   formatDateInput,
   fromRuDate,
 } from "./App";
@@ -31,6 +33,7 @@ const makeData = (): AppData => ({
   categoryTypes: { еда: ["everyday"] },
   everydayLimits: [{ id: "setting", category: "еда", limit: 10000 }],
   drafts: [],
+  wishlist: [],
   periods: [makePeriod(true), makePeriod(false)],
 });
 
@@ -96,6 +99,26 @@ describe("backup", () => {
     );
     createObjectURL.mockRestore();
     revokeObjectURL.mockRestore();
+  });
+});
+
+describe("wishlist", () => {
+  it("adds an item with only a name and amount", () => {
+    const save = vi.fn();
+    render(<Wishlist data={makeData()} save={save} back={vi.fn()} />);
+    expect(screen.getByText("вишлист пока пуст")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "добавить желание" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "название" }), {
+      target: { value: "Новая сумка" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
+      target: { value: "15000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
+    expect(save.mock.calls[0][0].wishlist[0]).toMatchObject({
+      name: "новая сумка",
+      amount: 15000,
+    });
   });
 });
 
@@ -361,6 +384,69 @@ describe("period completion UI", () => {
     const input = screen.getByRole("textbox") as HTMLInputElement;
     expect(input.value).toBe("");
     expect(input.placeholder).toBe("0");
+  });
+});
+
+describe("expense creation", () => {
+  it("defaults an everyday expense date to today and saves it", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-23T12:00:00"));
+    const save = vi.fn();
+    const data = makeData();
+    const current = data.periods.find((item) => item.current)!;
+    render(
+      <AddExpense
+        data={data}
+        period={current}
+        save={save}
+        done={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: "дата" })).toHaveProperty(
+      "value",
+      "23.07.2026",
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
+      target: { value: "еда" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
+      target: { value: "1200" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
+    const saved = save.mock.calls[0][0] as AppData;
+    expect(
+      saved.periods
+        .find((item) => item.current)
+        ?.everyday[0].expenses.at(-1),
+    ).toMatchObject({ amount: 1200, date: "2026-07-23" });
+  });
+
+  it("hides the date for a paid one-off expense", () => {
+    const data = {
+      ...makeData(),
+      categories: ["услуги"],
+      categoryTypes: { услуги: ["oneOff" as const] },
+    };
+    render(
+      <AddExpense
+        data={data}
+        period={data.periods.find((item) => item.current)!}
+        save={vi.fn()}
+        done={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
+      target: { value: "oneOff" },
+    });
+    expect(
+      screen.getByRole("textbox", { name: "дата, необязательно" }),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
+      target: { value: "оплачено" },
+    });
+    expect(
+      screen.queryByRole("textbox", { name: "дата, необязательно" }),
+    ).toBeNull();
   });
 });
 
