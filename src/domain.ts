@@ -48,6 +48,7 @@ export type EverydayLimit = {
   id: string;
   category: string;
   limit: number;
+  automatic?: boolean;
   expenses: {
     id: string;
     amount: number;
@@ -78,6 +79,7 @@ export type EverydayLimitSetting = {
   id: string;
   category: string;
   limit: number;
+  automatic?: boolean;
 };
 export type WishlistItem = {
   id: string;
@@ -129,6 +131,31 @@ export const normalizeData = (raw: unknown): AppData => {
   categories.forEach((category) => {
     categoryTypes[category] ??= ["mandatory", "everyday", "oneOff", "impulse"];
   });
+  const currentSourcePeriod = (source.periods ?? []).find(
+    (period) => period.current,
+  );
+  const likelyAutomaticCategories = new Set(
+    Array.isArray(source.everydayLimits)
+      ? source.everydayLimits
+          .filter((setting) => {
+            if (setting.automatic !== undefined) return false;
+            const item = currentSourcePeriod?.everyday.find(
+              (limit) => limit.category === setting.category,
+            );
+            return (
+              item !== undefined &&
+              item.expenses.length > 0 &&
+              item.limit ===
+                item.expenses.reduce(
+                  (sum, expenseItem) => sum + expenseItem.amount,
+                  0,
+                ) &&
+              item.limit === setting.limit
+            );
+          })
+          .map((setting) => translateCategory(setting.category))
+      : [],
+  );
   const expense = (item: Expense): Expense => ({
     ...item,
     category: translateCategory(item.category),
@@ -139,6 +166,9 @@ export const normalizeData = (raw: unknown): AppData => {
     everyday: period.everyday.map((item) => ({
       ...item,
       category: translateCategory(item.category),
+      automatic:
+        item.automatic === true ||
+        likelyAutomaticCategories.has(translateCategory(item.category)),
     })),
     oneOff: period.oneOff.map(expense),
     impulse: period.impulse.map(expense),
@@ -151,6 +181,9 @@ export const normalizeData = (raw: unknown): AppData => {
     ? source.everydayLimits.map((item) => ({
         ...item,
         category: translateCategory(item.category),
+        automatic:
+          item.automatic === true ||
+          likelyAutomaticCategories.has(translateCategory(item.category)),
       }))
     : legacyLimitSource
         .filter((item) => item.limit > 0)
@@ -207,24 +240,65 @@ export const addEverydayExpense = (
         id: newLimitId,
         category,
         limit: expense.amount,
+        automatic: true,
         expenses: [expense],
       },
     ];
   return items.map((item) =>
     item.id === target.id
-      ? {
-          ...item,
-          limit: item.limit === 0 ? expense.amount : item.limit,
-          expenses: [...item.expenses, expense],
-        }
+      ? (() => {
+          const expenses = [...item.expenses, expense];
+          return {
+            ...item,
+            limit: item.automatic
+              ? expenses.reduce((sum, entry) => sum + entry.amount, 0)
+              : item.limit,
+            expenses,
+          };
+        })()
       : item,
   );
+};
+export const recalculateAutomaticEverydayLimits = (
+  items: EverydayLimit[],
+) =>
+  items.map((item) =>
+    item.automatic ? { ...item, limit: spent(item) } : item,
+  );
+export const syncAutomaticEverydaySettings = (
+  settings: EverydayLimitSetting[],
+  period: Period,
+) => {
+  const next = [...settings];
+  period.everyday
+    .filter((item) => item.automatic)
+    .forEach((item) => {
+      const existing = next.find(
+        (setting) => setting.category === item.category,
+      );
+      if (existing) {
+        const index = next.indexOf(existing);
+        next[index] = {
+          ...existing,
+          limit: item.limit,
+          automatic: true,
+        };
+      } else {
+        next.push({
+          id: item.id,
+          category: item.category,
+          limit: item.limit,
+          automatic: true,
+        });
+      }
+    });
+  return next;
 };
 export const freeMoney = (p: Period) =>
   p.income +
   p.previousBalance -
   p.mandatory.reduce((s, e) => s + e.amount, 0) -
-  p.everyday.reduce((s, e) => s + spent(e) + stillPlanned(e), 0) -
+  p.everyday.reduce((s, e) => s + Math.max(e.limit, spent(e)), 0) -
   p.oneOff.reduce((s, e) => s + e.amount, 0) -
   p.impulse.reduce((s, e) => s + e.amount, 0);
 export const suggestedPreviousBalance = (period?: Period) =>

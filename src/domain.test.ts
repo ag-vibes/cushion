@@ -11,7 +11,9 @@ import {
   stillPlanned,
   suggestedPreviousBalance,
   periodState,
+  recalculateAutomaticEverydayLimits,
   settleScheduledOneOffExpenses,
+  syncAutomaticEverydaySettings,
   validBackup,
   type Period,
 } from "./domain";
@@ -145,6 +147,47 @@ describe("financial calculations", () => {
     expect(items[0].limit).toBe(1000);
     expect(stillPlanned(items[0])).toBe(-400);
   });
+  it("grows and shrinks an automatic limit with current-period expenses", () => {
+    const afterAdd = addEverydayExpense(
+      [
+        {
+          id: "limit",
+          category: "еда",
+          limit: 50,
+          automatic: true,
+          expenses: [{ id: "first", amount: 50 }],
+        },
+      ],
+      "еда",
+      { id: "second", amount: 100 },
+      "unused",
+    );
+    expect(afterAdd[0].limit).toBe(150);
+    const afterDelete = recalculateAutomaticEverydayLimits([
+      { ...afterAdd[0], expenses: [{ id: "first", amount: 50 }] },
+    ]);
+    expect(afterDelete[0].limit).toBe(50);
+    expect(
+      syncAutomaticEverydaySettings([], period({ everyday: afterDelete }))[0],
+    ).toMatchObject({ category: "еда", limit: 50, automatic: true });
+  });
+  it("keeps a fixed limit and subtracts actual overspending", () => {
+    const p = period({
+      income: 10000,
+      previousBalance: 0,
+      everyday: [
+        {
+          id: "limit",
+          category: "покупки",
+          limit: 2000,
+          automatic: false,
+          expenses: [{ id: "expense", amount: 2500 }],
+        },
+      ],
+    });
+    expect(stillPlanned(p.everyday[0])).toBe(-500);
+    expect(freeMoney(p)).toBe(7500);
+  });
   it("suggests only a positive previous-period balance", () => {
     expect(suggestedPreviousBalance(period({ income: 1000 }))).toBe(0);
     expect(
@@ -211,6 +254,29 @@ describe("financial calculations", () => {
       periods: [],
     });
     expect(data.categories).toEqual(["еда"]);
+  });
+  it("recognises a legacy limit created from matching current spending", () => {
+    const migrated = normalizeData({
+      version: 1,
+      categories: ["еда"],
+      categoryTypes: { еда: ["everyday"] },
+      everydayLimits: [{ id: "setting", category: "еда", limit: 50 }],
+      drafts: [],
+      periods: [
+        period({
+          everyday: [
+            {
+              id: "limit",
+              category: "еда",
+              limit: 50,
+              expenses: [{ id: "expense", amount: 50 }],
+            },
+          ],
+        }),
+      ],
+    });
+    expect(migrated.everydayLimits[0].automatic).toBe(true);
+    expect(migrated.periods[0].everyday[0].automatic).toBe(true);
   });
   it("keeps salary day active and finishes the period the next day", () => {
     const current = period({ nextSalaryDate: "2026-08-04" });

@@ -7,10 +7,12 @@ import {
   freeMoney,
   normalizeData,
   periodState,
+  recalculateAutomaticEverydayLimits,
   settleScheduledOneOffExpenses,
   spent,
   stillPlanned,
   suggestedPreviousBalance,
+  syncAutomaticEverydaySettings,
   uid,
   validBackup,
   type AppData,
@@ -176,6 +178,12 @@ export function App() {
           update(
             {
               ...data,
+              everydayLimits: data.everydayLimits
+                .filter((item) => !item.automatic || item.limit > 0)
+                .map((item) => ({
+                  ...item,
+                  automatic: false,
+                })),
               periods: [
                 ...data.periods.map((x) => ({ ...x, current: false })),
                 p,
@@ -486,12 +494,14 @@ function Groups({
             editAmount(expense.category, expense.amount, (amount) =>
               onChange?.({
                 ...p,
-                everyday: p.everyday.map((item) => ({
-                  ...item,
-                  expenses: item.expenses.map((entry) =>
-                    entry.id === expense.id ? { ...entry, amount } : entry,
-                  ),
-                })),
+                everyday: recalculateAutomaticEverydayLimits(
+                  p.everyday.map((item) => ({
+                    ...item,
+                    expenses: item.expenses.map((entry) =>
+                      entry.id === expense.id ? { ...entry, amount } : entry,
+                    ),
+                  })),
+                ),
               }),
             )
           }
@@ -507,12 +517,14 @@ function Groups({
               apply: () =>
                 onChange?.({
                   ...p,
-                  everyday: p.everyday.map((item) => ({
-                    ...item,
-                    expenses: item.expenses.filter(
-                      (entry) => entry.id !== expense.id,
-                    ),
-                  })),
+                  everyday: recalculateAutomaticEverydayLimits(
+                    p.everyday.map((item) => ({
+                      ...item,
+                      expenses: item.expenses.filter(
+                        (entry) => entry.id !== expense.id,
+                      ),
+                    })),
+                  ),
                 }),
             })
           }
@@ -712,11 +724,14 @@ export function CreatePeriod({
       current: true,
       createdAt: new Date().toISOString(),
       mandatory: [],
-      everyday: data.everydayLimits.map((item) => ({
-        ...item,
-        id: uid(),
-        expenses: [],
-      })),
+      everyday: data.everydayLimits
+        .filter((item) => !item.automatic || item.limit > 0)
+        .map((item) => ({
+          ...item,
+          id: uid(),
+          automatic: false,
+          expenses: [],
+        })),
       oneOff: [],
       impulse: [],
     });
@@ -833,6 +848,7 @@ export function AddExpense({
               id: uid(),
               category,
               limit: savedLimit?.limit ?? 0,
+              automatic: savedLimit?.automatic ?? true,
               expenses: [],
             },
           ];
@@ -845,13 +861,7 @@ export function AddExpense({
           uid(),
         ),
       };
-      if (!savedLimit || savedLimit.limit === 0) {
-        everydayLimits = savedLimit
-          ? data.everydayLimits.map((item) =>
-              item.id === savedLimit.id ? { ...item, limit: amount } : item,
-            )
-          : [...data.everydayLimits, { id: uid(), category, limit: amount }];
-      }
+      everydayLimits = syncAutomaticEverydaySettings(everydayLimits, p);
     } else {
       const date =
         type === "oneOff" && status === "предстоит"
@@ -1010,7 +1020,14 @@ export function PeriodScreen({
   const finished = state === "finished";
   const change = (p: Period) =>
     save(
-      { ...data, periods: data.periods.map((x) => (x.id === p.id ? p : x)) },
+      {
+        ...data,
+        everydayLimits: syncAutomaticEverydaySettings(
+          data.everydayLimits,
+          p,
+        ),
+        periods: data.periods.map((x) => (x.id === p.id ? p : x)),
+      },
       "изменения сохранены",
     );
   const fieldLabels: Record<PeriodField, string> = {
@@ -1170,6 +1187,9 @@ export function PeriodScreen({
                 save(
                   {
                     ...data,
+                    everydayLimits: data.everydayLimits.filter(
+                      (item) => !item.automatic,
+                    ),
                     periods: data.periods.filter(
                       (item) => item.id !== period.id,
                     ),
@@ -1762,19 +1782,21 @@ export function Categories({
             const existing = data.everydayLimits.find(
               (item) => item.category === limitCategory,
             );
-            const everydayLimits =
-              limit === 0
-                ? data.everydayLimits.filter(
-                    (item) => item.category !== limitCategory,
-                  )
-                : existing
-                  ? data.everydayLimits.map((item) =>
-                      item.id === existing.id ? { ...item, limit } : item,
-                    )
-                  : [
-                      ...data.everydayLimits,
-                      { id: uid(), category: limitCategory, limit },
-                    ];
+            const everydayLimits = existing
+              ? data.everydayLimits.map((item) =>
+                  item.id === existing.id
+                    ? { ...item, limit, automatic: false }
+                    : item,
+                )
+              : [
+                  ...data.everydayLimits,
+                  {
+                    id: uid(),
+                    category: limitCategory,
+                    limit,
+                    automatic: false,
+                  },
+                ];
             save(
               {
                 ...data,
@@ -1787,31 +1809,25 @@ export function Categories({
                   if (current)
                     return {
                       ...period,
-                      everyday:
-                        limit === 0 && current.expenses.length === 0
-                          ? period.everyday.filter(
-                              (item) => item.id !== current.id,
-                            )
-                          : period.everyday.map((item) =>
-                              item.id === current.id
-                                ? { ...item, limit }
-                                : item,
-                            ),
+                      everyday: period.everyday.map((item) =>
+                        item.id === current.id
+                          ? { ...item, limit, automatic: false }
+                          : item,
+                      ),
                     };
-                  return limit > 0
-                    ? {
-                        ...period,
-                        everyday: [
-                          ...period.everyday,
-                          {
-                            id: uid(),
-                            category: limitCategory,
-                            limit,
-                            expenses: [],
-                          },
-                        ],
-                      }
-                    : period;
+                  return {
+                    ...period,
+                    everyday: [
+                      ...period.everyday,
+                      {
+                        id: uid(),
+                        category: limitCategory,
+                        limit,
+                        automatic: false,
+                        expenses: [],
+                      },
+                    ],
+                  };
                 }),
               },
               "повседневный лимит сохранён",

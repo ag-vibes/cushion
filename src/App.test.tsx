@@ -480,7 +480,10 @@ describe("category settings UI", () => {
 
   it("keeps reusable limits in settings and applies edits to the current period", () => {
     const save = vi.fn();
-    render(<Categories data={makeData()} save={save} back={vi.fn()} />);
+    const data = makeData();
+    data.everydayLimits[0].automatic = true;
+    data.periods.find((period) => period.current)!.everyday[0].automatic = true;
+    render(<Categories data={data} save={save} back={vi.fn()} />);
     const limitHeading = screen.getByRole("heading", {
       name: "повседневные лимиты",
     });
@@ -508,9 +511,13 @@ describe("category settings UI", () => {
     fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
     const saved = save.mock.calls[0][0] as AppData;
     expect(saved.everydayLimits[0].limit).toBe(12000);
+    expect(saved.everydayLimits[0].automatic).toBe(false);
     expect(
       saved.periods.find((period) => period.current)?.everyday[0].limit,
     ).toBe(12000);
+    expect(
+      saved.periods.find((period) => period.current)?.everyday[0].automatic,
+    ).toBe(false);
     expect(
       saved.periods.find((period) => !period.current)?.everyday[0].limit,
     ).toBe(10000);
