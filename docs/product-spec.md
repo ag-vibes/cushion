@@ -282,8 +282,9 @@ still planned = limit - spent
 Rules:
 
 - everyday limits are reserved in free money from the start of the period;
-- when adding an everyday expense, the user enters the new expense amount and date;
-- the date defaults to today and is shown with the expense on `период`;
+- when adding an everyday expense, the user enters the new expense amount;
+- the app records the creation date and time automatically;
+- `период` shows this moment in the format `26 июля 13:00`;
 - the entered amount increases `spent`;
 - the user must not enter cumulative spending totals;
 - `still planned` updates automatically;
