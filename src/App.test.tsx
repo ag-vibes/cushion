@@ -426,6 +426,30 @@ describe("period completion UI", () => {
 });
 
 describe("expense creation", () => {
+  it("does not save a zero-value expense", () => {
+    const save = vi.fn();
+    const data = makeData();
+    render(
+      <AddExpense
+        data={data}
+        period={data.periods.find((item) => item.current)!}
+        save={save}
+        done={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
+      target: { value: "еда" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
+    expect(
+      screen.getByText("сумма расхода должна быть больше нуля"),
+    ).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("records the current moment without showing a date field", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-23T12:34:00"));

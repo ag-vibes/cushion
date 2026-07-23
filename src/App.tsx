@@ -596,6 +596,7 @@ function Groups({
         <AmountModal
           title={amountEdit.title}
           initial={amountEdit.value}
+          requirePositive
           close={() => setAmountEdit(undefined)}
           save={(amount) => {
             amountEdit.apply(amount);
@@ -831,6 +832,10 @@ export function AddExpense({
     }
     if (!validateAmount(amount)) {
       setError("сумма должна быть числом и не может быть отрицательной");
+      return;
+    }
+    if (amount === 0) {
+      setError("сумма расхода должна быть больше нуля");
       return;
     }
     const category = String(f.get("category"));
@@ -1821,7 +1826,7 @@ export function Categories({
                   const current = period.everyday.find(
                     (item) => item.category === limitCategory,
                   );
-                  if (current && limit === 0 && current.expenses.length === 0)
+                  if (current && limit === 0 && spent(current) === 0)
                     return {
                       ...period,
                       everyday: period.everyday.filter(
@@ -2114,12 +2119,14 @@ function AmountModal({
   title,
   initial,
   requireExplicitValue = false,
+  requirePositive = false,
   close,
   save,
 }: {
   title: string;
   initial: number;
   requireExplicitValue?: boolean;
+  requirePositive?: boolean;
   close: () => void;
   save: (amount: number) => void;
 }) {
@@ -2137,6 +2144,8 @@ function AmountModal({
             return setError("введите сумму");
           const amount = num(value);
           if (!validateAmount(amount)) return setError("проверьте сумму");
+          if (requirePositive && amount === 0)
+            return setError("сумма расхода должна быть больше нуля");
           save(amount);
         }}
       >

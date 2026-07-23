@@ -162,8 +162,14 @@ export const normalizeData = (raw: unknown): AppData => {
   });
   const periods = (source.periods ?? []).map((period) => ({
     ...period,
-    mandatory: period.mandatory.map(expense),
+    mandatory: period.mandatory.filter((item) => item.amount > 0).map(expense),
     everyday: period.everyday
+      .map((item) => ({
+        ...item,
+        expenses: item.expenses.filter(
+          (expenseItem) => expenseItem.amount > 0,
+        ),
+      }))
       .filter((item) => item.limit > 0 || item.expenses.length > 0)
       .map((item) => {
         const automatic =
@@ -182,8 +188,8 @@ export const normalizeData = (raw: unknown): AppData => {
           automatic,
         };
       }),
-    oneOff: period.oneOff.map(expense),
-    impulse: period.impulse.map(expense),
+    oneOff: period.oneOff.filter((item) => item.amount > 0).map(expense),
+    impulse: period.impulse.filter((item) => item.amount > 0).map(expense),
   }));
   const legacyLimitSource =
     periods.find((period) => period.current)?.everyday ??
@@ -197,7 +203,7 @@ export const normalizeData = (raw: unknown): AppData => {
             .find((period) => period.current)
             ?.everyday.find((limit) => limit.category === category);
           if (item.limit === 0) {
-            if (!currentItem || currentItem.expenses.length === 0) return [];
+            if (!currentItem || spent(currentItem) === 0) return [];
             return [
               {
                 ...item,
@@ -298,7 +304,7 @@ export const recalculateAutomaticEverydayLimits = (
     .map((item) =>
       item.automatic ? { ...item, limit: spent(item) } : item,
     )
-    .filter((item) => item.limit > 0 || item.expenses.length > 0);
+    .filter((item) => item.limit > 0 || spent(item) > 0);
 export const syncAutomaticEverydaySettings = (
   settings: EverydayLimitSetting[],
   period: Period,

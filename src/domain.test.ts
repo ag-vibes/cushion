@@ -335,6 +335,37 @@ describe("financial calculations", () => {
     expect(migrated.everydayLimits).toEqual([]);
     expect(migrated.periods[0].everyday).toEqual([]);
   });
+  it("removes a saved zero and a zero-value expense record", () => {
+    const migrated = normalizeData({
+      version: 1,
+      categories: ["дом и гигиена"],
+      categoryTypes: { "дом и гигиена": ["everyday"] },
+      everydayLimits: [
+        {
+          id: "setting",
+          category: "дом и гигиена",
+          limit: 0,
+          automatic: false,
+        },
+      ],
+      drafts: [],
+      periods: [
+        period({
+          everyday: [
+            {
+              id: "limit",
+              category: "дом и гигиена",
+              limit: 0,
+              automatic: false,
+              expenses: [{ id: "zero-expense", amount: 0 }],
+            },
+          ],
+        }),
+      ],
+    });
+    expect(migrated.everydayLimits).toEqual([]);
+    expect(migrated.periods[0].everyday).toEqual([]);
+  });
   it("keeps salary day active and finishes the period the next day", () => {
     const current = period({ nextSalaryDate: "2026-08-04" });
     expect(periodState(current, "2026-08-03")).toBe("active");
