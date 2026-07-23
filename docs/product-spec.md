@@ -29,6 +29,7 @@ The MVP must support:
 - viewing the current period;
 - viewing period history;
 - editing categories;
+- maintaining a simple purchase wishlist;
 - creating and restoring a local backup.
 
 The MVP must not include:
@@ -247,7 +248,7 @@ Rules:
 
 #### Mandatory expense settings
 
-Reusable mandatory-expense settings are managed in `ещё` → `категории и расходы`.
+Reusable mandatory-expense settings are managed in `ещё` → `настройка категорий`.
 
 Each setting contains:
 
@@ -281,18 +282,19 @@ still planned = limit - spent
 Rules:
 
 - everyday limits are reserved in free money from the start of the period;
-- when adding an everyday expense, the user enters only the new expense amount;
+- when adding an everyday expense, the user enters the new expense amount and date;
+- the date defaults to today and is shown with the expense on `период`;
 - the entered amount increases `spent`;
 - the user must not enter cumulative spending totals;
 - `still planned` updates automatically;
-- the user may edit the reusable limit in `ещё` → `категории и расходы`;
+- the user may edit the reusable limit in `ещё` → `настройка категорий`;
 - changing a reusable limit immediately updates the current period and is used for future periods;
 - completed periods retain the limit that applied to them and are never rewritten;
 - if `spent` exceeds `limit`, `still planned` becomes negative.
 
 #### Everyday limit settings
 
-Everyday limits are reusable budget settings rather than values configured separately for every period. They are managed in `ещё` → `категории и расходы`, applied to the current period immediately and copied into each new period with spending reset to zero. A completed period keeps its own historical limit snapshot.
+Everyday limits are reusable budget settings rather than values configured separately for every period. They are managed in `ещё` → `настройка категорий`, applied to the current period immediately and copied into each new period with spending reset to zero. A completed period keeps its own historical limit snapshot.
 
 If an everyday expense is added to a category whose reusable limit is zero or absent, that first expense creates a reusable limit equal to its amount and applies it to the current period. If a non-zero limit already exists, overspending must not increase it: the remaining amount becomes negative and is shown in the danger colour.
 
@@ -316,6 +318,11 @@ Rules:
 
 - the amount is reserved immediately;
 - changing status must not subtract the amount again;
+- a `предстоит` expense may have an optional date;
+- when that date arrives, its status automatically becomes `оплачено`;
+- without a date, `предстоит` remains unchanged until the user changes it;
+- an expense created as `оплачено` has no date;
+- both statuses remain editable on `главная`;
 - the expense may be edited or deleted during the current period.
 
 ### 7.4 Impulse purchases
@@ -454,18 +461,19 @@ Purpose: provide infrequent management actions.
 Contains:
 
 - combined everyday-limit, mandatory-expense and category settings;
+- wishlist;
 - period history;
 - backup.
 
-### 11.6 Categories and expenses
+### 11.6 Настройка категорий
 
 Purpose: manage reusable budget settings and the category list.
 
 Sections appear in this order:
 
-1. `настроить повседневные лимиты`;
-2. `настроить обязательные расходы`;
-3. `настроить категории`.
+1. `повседневные лимиты`;
+2. `обязательные расходы`;
+3. `категории`.
 
 The screen must support:
 
@@ -476,7 +484,21 @@ The screen must support:
 
 Category names remain Russian and lowercase.
 
-### 11.7 Mandatory expense settings
+The cards use the standard 12px spacing between related category-setting blocks.
+
+### 11.7 Вишлист
+
+Purpose: keep a lightweight list of future purchases.
+
+Each item contains:
+
+- name;
+- amount.
+
+Wishlist items do not have an expense category and do not affect free money.
+Adding an actual expense never happens automatically.
+
+### 11.8 Mandatory expense settings
 
 Purpose: manage reusable mandatory-expense settings.
 
@@ -488,7 +510,7 @@ The user may:
 
 Drafts are suggestions only and are never automatically added to a new period.
 
-### 11.8 Period history
+### 11.9 Period history
 
 Purpose: view previous financial periods.
 
@@ -496,7 +518,7 @@ The user may open a period and view its final values and expenses.
 
 Historical periods are read-only in the MVP.
 
-### 11.9 Backup
+### 11.10 Backup
 
 Purpose: protect locally stored data.
 
