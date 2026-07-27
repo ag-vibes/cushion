@@ -571,10 +571,9 @@ describe("period completion UI", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "изменить расход аренда" }),
     );
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "дата (необязательно)" }),
-      { target: { value: "30072026" } },
-    );
+    fireEvent.change(screen.getByRole("textbox", { name: "дата" }), {
+      target: { value: "30072026" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
     expect(
       (save.mock.calls[0][0] as AppData).periods.find(
@@ -771,9 +770,7 @@ describe("expense creation", () => {
       target: { value: "oneOff" },
     });
     expect(screen.queryByRole("combobox", { name: "статус" })).toBeNull();
-    expect(
-      screen.queryByRole("textbox", { name: "дата (необязательно)" }),
-    ).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "дата" })).toBeNull();
   });
 
   it("requires a one-off name and dates a paid expense today", () => {
@@ -854,7 +851,7 @@ describe("expense creation", () => {
     });
   });
 
-  it("accepts an optional planned date for a mandatory expense", () => {
+  it("creates a future planned expense without a status control", () => {
     const save = vi.fn();
     const data = {
       ...makeData(),
@@ -872,20 +869,16 @@ describe("expense creation", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
       target: { value: "mandatory" },
     });
-    expect(
-      (screen.getByRole("combobox", { name: "статус" }) as HTMLSelectElement)
-        .value,
-    ).toBe("предстоит");
+    expect(screen.queryByRole("combobox", { name: "статус" })).toBeNull();
     fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
       target: { value: "аренда" },
     });
     fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
       target: { value: "30000" },
     });
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "дата (необязательно)" }),
-      { target: { value: "29072026" } },
-    );
+    fireEvent.change(screen.getByRole("textbox", { name: "дата" }), {
+      target: { value: "29072026" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
     expect(
       (save.mock.calls[0][0] as AppData).periods.find((item) => item.current)
@@ -927,6 +920,9 @@ describe("expense creation", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
       target: { value: "5000" },
     });
+    fireEvent.change(screen.getByRole("textbox", { name: "дата" }), {
+      target: { value: "29072026" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
     const saved = save.mock.calls[0][0] as AppData;
     expect(saved.periods.find((item) => item.current)?.mandatory).toHaveLength(
@@ -937,7 +933,7 @@ describe("expense creation", () => {
     ).toBeUndefined();
   });
 
-  it("keeps a planned date inside the future part of the current period", () => {
+  it("accepts today and treats the planned expense as paid immediately", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-27T12:00:00"));
     const save = vi.fn();
@@ -963,20 +959,17 @@ describe("expense creation", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
       target: { value: "30000" },
     });
-    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
-      target: { value: "предстоит" },
+    fireEvent.change(screen.getByRole("textbox", { name: "дата" }), {
+      target: { value: "27072026" },
     });
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "дата (необязательно)" }),
-      { target: { value: "27072026" } },
-    );
     fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
     expect(
-      screen.getByText(
-        "дата должна быть позже сегодняшней и не позже конца периода",
-      ),
-    ).toBeTruthy();
-    expect(save).not.toHaveBeenCalled();
+      (save.mock.calls[0][0] as AppData).periods.find((item) => item.current)
+        ?.mandatory[0],
+    ).toMatchObject({
+      status: "оплачено",
+      date: "2026-07-27",
+    });
   });
 });
 

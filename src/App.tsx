@@ -20,7 +20,6 @@ import {
   type Expense,
   type ExpenseKind,
   type Period,
-  type Status,
   type WishlistItem,
 } from "./domain";
 import { IndexedDbStorage } from "./storage";
@@ -106,12 +105,14 @@ function DateInput({
   name,
   ariaLabel,
   autoFocus,
+  required,
 }: {
   value: string;
   onChange: (value: string) => void;
   name?: string;
   ariaLabel?: string;
   autoFocus?: boolean;
+  required?: boolean;
 }) {
   return (
     <input
@@ -120,6 +121,7 @@ function DateInput({
       inputMode="numeric"
       placeholder="дд.мм.гггг"
       aria-label={ariaLabel}
+      required={required}
       value={value}
       onChange={(event) => onChange(formatDateInput(event.target.value))}
     />
@@ -628,6 +630,10 @@ function Groups({
                       name,
                       amount,
                       date,
+                      ...(expenseEdit.group === "mandatory" &&
+                      date === todayIso()
+                        ? { status: "оплачено" as const }
+                        : {}),
                     }
                   : item,
               ),
@@ -846,7 +852,6 @@ export function AddExpense({
 }) {
   const [type, setType] = useState("everyday");
   const [category, setCategory] = useState("");
-  const [status, setStatus] = useState<Status>("оплачено");
   const [oneOffDate, setOneOffDate] = useState("");
   const [error, setError] = useState("");
   const draftAmount =
@@ -908,29 +913,25 @@ export function AddExpense({
       everydayLimits = syncAutomaticEverydaySettings(everydayLimits, p);
     } else {
       const date =
-        type === "mandatory" && status === "предстоит"
-          ? oneOffDate
-            ? fromRuDate(oneOffDate)
-            : undefined
-          : type === "mandatory" || type === "oneOff" || type === "impulse"
+        type === "mandatory"
+          ? fromRuDate(oneOffDate)
+          : type === "oneOff" || type === "impulse"
             ? todayIso()
             : undefined;
-      if (
-        type === "mandatory" &&
-        status === "предстоит" &&
-        oneOffDate &&
-        !date
-      ) {
+      if (type === "mandatory" && !oneOffDate) {
+        setError("укажите дату");
+        return;
+      }
+      if (type === "mandatory" && !date) {
         setError("введите существующую дату");
         return;
       }
       if (
         type === "mandatory" &&
-        status === "предстоит" &&
         date &&
-        (date <= todayIso() || date > period.nextSalaryDate)
+        (date < todayIso() || date > period.nextSalaryDate)
       ) {
-        setError("дата должна быть позже сегодняшней и не позже конца периода");
+        setError("дата должна быть не раньше сегодня и не позже конца периода");
         return;
       }
       const expense: Expense = {
@@ -938,7 +939,12 @@ export function AddExpense({
         category,
         amount,
         ...(name ? { name } : {}),
-        status: type === "mandatory" ? status : undefined,
+        status:
+          type === "mandatory"
+            ? date === todayIso()
+              ? "оплачено"
+              : "предстоит"
+            : undefined,
         date,
       };
       p = {
@@ -973,9 +979,6 @@ export function AddExpense({
             onChange={(e) => {
               setType(e.target.value);
               setCategory("");
-              setStatus(
-                e.target.value === "mandatory" ? "предстоит" : "оплачено",
-              );
               setOneOffDate("");
             }}
           >
@@ -1026,27 +1029,12 @@ export function AddExpense({
           </Field>
         )}
         {type === "mandatory" && (
-          <Field label="статус">
-            <select
-              name="status"
-              value={status}
-              onChange={(event) => {
-                const next = event.target.value as Status;
-                setStatus(next);
-                if (next === "оплачено") setOneOffDate("");
-              }}
-            >
-              <option>предстоит</option>
-              <option>оплачено</option>
-            </select>
-          </Field>
-        )}
-        {type === "mandatory" && status === "предстоит" && (
-          <Field label="дата (необязательно)">
+          <Field label="дата">
             <DateInput
               name="date"
               value={oneOffDate}
               onChange={setOneOffDate}
+              required
             />
           </Field>
         )}
@@ -2274,11 +2262,12 @@ function ExpenseEditModal({
               ? fromRuDate(plannedDate)
               : undefined
             : expense.date;
-          if (canEditDate && plannedDate && !date)
+          if (canEditDate && !plannedDate) return setError("укажите дату");
+          if (canEditDate && !date)
             return setError("введите существующую дату");
-          if (canEditDate && date && (date <= todayIso() || date > periodEnd))
+          if (canEditDate && date && (date < todayIso() || date > periodEnd))
             return setError(
-              "дата должна быть позже сегодняшней и не позже конца периода",
+              "дата должна быть не раньше сегодня и не позже конца периода",
             );
           save(trimmedName || undefined, parsedAmount, date);
         }}
@@ -2305,8 +2294,8 @@ function ExpenseEditModal({
           />
         </Field>
         {canEditDate && (
-          <Field label="дата (необязательно)">
-            <DateInput value={plannedDate} onChange={setPlannedDate} />
+          <Field label="дата">
+            <DateInput value={plannedDate} onChange={setPlannedDate} required />
           </Field>
         )}
         {error && <p className="error">{error}</p>}
