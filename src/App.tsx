@@ -356,6 +356,7 @@ export function Home({
         p={period}
         categoryOrder={categoryOrder}
         statusEditable={!finished}
+        showDates={false}
         onChange={onChange}
       />
     </>
@@ -365,12 +366,14 @@ function Groups({
   p,
   editable,
   statusEditable,
+  showDates = false,
   onChange,
   categoryOrder,
 }: {
   p: Period;
   editable?: boolean;
   statusEditable?: boolean;
+  showDates?: boolean;
   onChange?: (p: Period) => void;
   categoryOrder?: string[];
 }) {
@@ -381,7 +384,7 @@ function Groups({
   }>();
   const [expenseEdit, setExpenseEdit] = useState<{
     expense: Expense;
-    group: "oneOff" | "impulse";
+    group: "mandatory" | "oneOff" | "impulse";
   }>();
   const [pendingDelete, setPendingDelete] = useState<{
     category: string;
@@ -421,7 +424,7 @@ function Groups({
       <span>
         {e.category}
         {e.name && <small>{e.name}</small>}
-        {e.date && <small>{dateLabel(e.date)}</small>}
+        {showDates && e.date && <small>{dateLabel(e.date)}</small>}
       </span>
       <span className="expense-trailing">
         {group && status(group, e)}
@@ -433,18 +436,7 @@ function Groups({
               aria-label={`изменить расход ${e.category}`}
               onClick={() => {
                 const targetGroup = group ?? "impulse";
-                if (targetGroup === "oneOff" || targetGroup === "impulse") {
-                  setExpenseEdit({ expense: e, group: targetGroup });
-                  return;
-                }
-                editAmount(e.category, e.amount, (n) =>
-                  onChange?.({
-                    ...p,
-                    mandatory: p.mandatory.map((x) =>
-                      x.id === e.id ? { ...x, amount: n } : x,
-                    ),
-                  }),
-                );
+                setExpenseEdit({ expense: e, group: targetGroup });
               }}
             >
               ✎
@@ -624,13 +616,20 @@ function Groups({
       {expenseEdit && (
         <ExpenseEditModal
           expense={expenseEdit.expense}
+          group={expenseEdit.group}
+          periodEnd={p.nextSalaryDate}
           close={() => setExpenseEdit(undefined)}
-          save={(name, amount) => {
+          save={(name, amount, date) => {
             onChange?.({
               ...p,
               [expenseEdit.group]: p[expenseEdit.group].map((item) =>
                 item.id === expenseEdit.expense.id
-                  ? { ...item, name, amount }
+                  ? {
+                      ...item,
+                      ...(name === undefined ? {} : { name }),
+                      amount,
+                      date,
+                    }
                   : item,
               ),
             });
@@ -926,6 +925,15 @@ export function AddExpense({
         setError("введите существующую дату");
         return;
       }
+      if (
+        (type === "mandatory" || type === "oneOff") &&
+        status === "предстоит" &&
+        date &&
+        (date <= todayIso() || date > period.nextSalaryDate)
+      ) {
+        setError("дата должна быть позже сегодняшней и не позже конца периода");
+        return;
+      }
       const expense: Expense = {
         id: uid(),
         category,
@@ -1161,6 +1169,7 @@ export function PeriodScreen({
         <Groups
           p={period}
           editable={!finished}
+          showDates
           onChange={finished ? undefined : change}
           categoryOrder={data.categories}
         />
@@ -2221,18 +2230,29 @@ function ModalActions({ close }: { close: () => void }) {
 
 function ExpenseEditModal({
   expense,
+  group,
+  periodEnd,
   close,
   save,
 }: {
   expense: Expense;
+  group: "mandatory" | "oneOff" | "impulse";
+  periodEnd: string;
   close: () => void;
-  save: (name: string, amount: number) => void;
+  save: (name: string | undefined, amount: number, date?: string) => void;
 }) {
   const [name, setName] = useState(expense.name ?? "");
   const [amount, setAmount] = useState(
     formatInputAmount(String(expense.amount)),
   );
+  const [plannedDate, setPlannedDate] = useState(
+    expense.date ? toRuDate(expense.date) : "",
+  );
   const [error, setError] = useState("");
+  const hasName = group === "oneOff" || group === "impulse";
+  const canEditDate =
+    (group === "mandatory" || group === "oneOff") &&
+    expense.status === "предстоит";
   return (
     <Modal title={expense.name || expense.category} onClose={close}>
       <form
@@ -2241,22 +2261,36 @@ function ExpenseEditModal({
           event.preventDefault();
           const trimmedName = name.trim().toLowerCase();
           const parsedAmount = num(amount);
-          if (!trimmedName) return setError("введите название");
+          if (hasName && !trimmedName) return setError("введите название");
           if (!validateAmount(parsedAmount) || parsedAmount === 0)
             return setError("сумма расхода должна быть больше нуля");
-          save(trimmedName, parsedAmount);
+          const date = canEditDate
+            ? plannedDate
+              ? fromRuDate(plannedDate)
+              : undefined
+            : expense.date;
+          if (canEditDate && plannedDate && !date)
+            return setError("введите существующую дату");
+          if (canEditDate && date && (date <= todayIso() || date > periodEnd))
+            return setError(
+              "дата должна быть позже сегодняшней и не позже конца периода",
+            );
+          save(hasName ? trimmedName : undefined, parsedAmount, date);
         }}
       >
-        <Field label="название">
-          <input
-            autoFocus
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
+        {hasName && (
+          <Field label="название">
+            <input
+              autoFocus
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </Field>
+        )}
         <Field label="сумма">
           <input
+            autoFocus={!hasName}
             inputMode="decimal"
             placeholder="0"
             value={amount}
@@ -2265,6 +2299,11 @@ function ExpenseEditModal({
             }
           />
         </Field>
+        {canEditDate && (
+          <Field label="дата, необязательно">
+            <DateInput value={plannedDate} onChange={setPlannedDate} />
+          </Field>
+        )}
         {error && <p className="error">{error}</p>}
         <ModalActions close={close} />
       </form>

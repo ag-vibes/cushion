@@ -408,6 +408,49 @@ describe("period completion UI", () => {
     expect(screen.queryByText("оплачено")).toBeNull();
   });
 
+  it("shows non-everyday dates on the period screen but not on home", () => {
+    const current = {
+      ...makePeriod(true),
+      mandatory: [
+        {
+          id: "rent",
+          category: "аренда",
+          amount: 30000,
+          status: "предстоит" as const,
+          date: "2026-07-30",
+        },
+      ],
+      oneOff: [
+        {
+          id: "trip",
+          category: "развлечения",
+          name: "поездка",
+          amount: 5000,
+          status: "оплачено" as const,
+          date: "2026-07-27",
+        },
+      ],
+      impulse: [
+        {
+          id: "candle",
+          category: "покупки",
+          name: "свеча",
+          amount: 1000,
+          date: "2026-07-27",
+        },
+      ],
+    };
+    const data = { ...makeData(), periods: [current, makePeriod(false)] };
+    const { rerender } = render(<Home period={current} go={vi.fn()} />);
+    expect(screen.queryByText("30 июля")).toBeNull();
+    expect(screen.queryByText("27 июля")).toBeNull();
+    rerender(
+      <PeriodScreen data={data} period={current} save={vi.fn()} go={vi.fn()} />,
+    );
+    expect(screen.getByText("30 июля")).toBeTruthy();
+    expect(screen.getAllByText("27 июля")).toHaveLength(2);
+  });
+
   it("edits actual everyday expenses instead of limits on the period screen", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-22T12:00:00"));
@@ -500,6 +543,48 @@ describe("period completion UI", () => {
     ).toMatchObject({
       name: "клининг",
       amount: 3500,
+    });
+  });
+
+  it("adds, changes or removes a future date from a planned mandatory expense", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T12:00:00"));
+    const save = vi.fn();
+    const current = {
+      ...makePeriod(true),
+      mandatory: [
+        {
+          id: "rent",
+          category: "аренда",
+          amount: 30000,
+          status: "предстоит" as const,
+        },
+      ],
+    };
+    render(
+      <PeriodScreen
+        data={{ ...makeData(), periods: [current, makePeriod(false)] }}
+        period={current}
+        save={save}
+        go={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "изменить расход аренда" }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "дата, необязательно" }),
+      { target: { value: "30072026" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
+    expect(
+      (save.mock.calls[0][0] as AppData).periods.find(
+        (period) => period.current,
+      )?.mandatory[0],
+    ).toMatchObject({
+      amount: 30000,
+      status: "предстоит",
+      date: "2026-07-30",
     });
   });
 
@@ -819,6 +904,48 @@ describe("expense creation", () => {
       status: "предстоит",
       date: "2026-07-29",
     });
+  });
+
+  it("keeps a planned date inside the future part of the current period", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T12:00:00"));
+    const save = vi.fn();
+    const data = {
+      ...makeData(),
+      categories: ["аренда"],
+      categoryTypes: { аренда: ["mandatory" as const] },
+    };
+    render(
+      <AddExpense
+        data={data}
+        period={data.periods.find((item) => item.current)!}
+        save={save}
+        done={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
+      target: { value: "mandatory" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
+      target: { value: "аренда" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
+      target: { value: "30000" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
+      target: { value: "предстоит" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "дата, необязательно" }),
+      { target: { value: "27072026" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
+    expect(
+      screen.getByText(
+        "дата должна быть позже сегодняшней и не позже конца периода",
+      ),
+    ).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
   });
 });
 
