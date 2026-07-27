@@ -243,8 +243,12 @@ Statuses:
 Rules:
 
 - the amount is reserved immediately when the payment is added to the period;
+- the default status when creating an expense is `оплачено`;
 - changing status from `предстоит` to `оплачено` must not subtract the amount again;
 - status is informational;
+- only `предстоит` is displayed in expense lists;
+- selecting `предстоит` changes the status to `оплачено`, after which the status label disappears;
+- `оплачено` is never displayed as a status label;
 - when an optional planned date arrives, status automatically becomes `оплачено`;
 - the planned date remains visible after the automatic status change;
 - manually changing an undated planned expense to `оплачено` records today's date;
@@ -353,6 +357,7 @@ Statuses:
 Rules:
 
 - the amount is reserved immediately;
+- the default status when creating an expense is `оплачено`;
 - changing status must not subtract the amount again;
 - a `предстоит` expense may have an optional date;
 - when that date arrives, its status automatically becomes `оплачено`;
@@ -360,7 +365,10 @@ Rules:
 - an expense created as `оплачено` receives today's date;
 - manually changing an undated planned expense to `оплачено` records today's date;
 - the planned date remains visible after an automatic status change;
-- both statuses remain editable on `главная`;
+- only `предстоит` is displayed on `главная` and `период`;
+- selecting `предстоит` changes the expense to `оплачено` and removes the status label;
+- `оплачено` is never displayed as a status label;
+- the name and amount of an existing one-off expense may be edited;
 - the expense may be edited or deleted during the current period.
 
 ### 7.4 Impulse purchases
@@ -378,6 +386,7 @@ Rules:
 - the amount reduces free money immediately;
 - today's date is recorded automatically;
 - no status is required;
+- the name and amount of an existing impulse purchase may be edited;
 - the purchase may be edited or deleted during the current period.
 
 ## 8. Free money calculation
@@ -457,7 +466,7 @@ The primary action is placed immediately below the period hero and scrolls with 
 
 The free money value must be the strongest visual element.
 
-Within every expense group, rows follow the shared category order configured in `ещё`; entering or editing amounts must not reorder them. The `предстоит` / `оплачено` status of mandatory and one-off expenses may be toggled directly on `главная`. This is an informational change and must not change free money.
+Within every expense group, rows follow the shared category order configured in `ещё`; entering or editing amounts must not reorder them. Only the `предстоит` status of mandatory and one-off expenses is shown on `главная`. Selecting it changes the expense to `оплачено` and removes the status label without changing free money.
 
 ### 11.2 Добавить расход
 
