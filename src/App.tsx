@@ -379,13 +379,18 @@ function Groups({
     value: number;
     apply: (amount: number) => void;
   }>();
+  const [expenseEdit, setExpenseEdit] = useState<{
+    expense: Expense;
+    group: "oneOff" | "impulse";
+  }>();
   const [pendingDelete, setPendingDelete] = useState<{
     category: string;
     apply: () => void;
   }>();
   const status = (group: "mandatory" | "oneOff", e: Expense) => {
+    if (e.status !== "предстоит") return null;
     const interactive = (editable || statusEditable) && onChange;
-    const className = `status ${e.status === "оплачено" ? "paid" : "planned"}`;
+    const className = "status planned";
     return interactive ? (
       <button
         className={className}
@@ -394,18 +399,16 @@ function Groups({
             ...p,
             [group]: p[group].map((x) =>
               x.id === e.id
-                ? x.status === "оплачено"
-                  ? { ...x, status: "предстоит", date: undefined }
-                  : { ...x, status: "оплачено", date: todayIso() }
+                ? { ...x, status: "оплачено", date: x.date ?? todayIso() }
                 : x,
             ),
           })
         }
       >
-        {e.status}
+        предстоит
       </button>
     ) : (
-      <span className={className}>{e.status}</span>
+      <span className={className}>предстоит</span>
     );
   };
   const editAmount = (
@@ -428,16 +431,21 @@ function Groups({
             <button
               className="icon"
               aria-label={`изменить расход ${e.category}`}
-              onClick={() =>
+              onClick={() => {
+                const targetGroup = group ?? "impulse";
+                if (targetGroup === "oneOff" || targetGroup === "impulse") {
+                  setExpenseEdit({ expense: e, group: targetGroup });
+                  return;
+                }
                 editAmount(e.category, e.amount, (n) =>
                   onChange?.({
                     ...p,
-                    [group ?? "impulse"]: (
-                      p[group ?? "impulse"] as Expense[]
-                    ).map((x) => (x.id === e.id ? { ...x, amount: n } : x)),
+                    mandatory: p.mandatory.map((x) =>
+                      x.id === e.id ? { ...x, amount: n } : x,
+                    ),
                   }),
-                )
-              }
+                );
+              }}
             >
               ✎
             </button>
@@ -610,6 +618,23 @@ function Groups({
           save={(amount) => {
             amountEdit.apply(amount);
             setAmountEdit(undefined);
+          }}
+        />
+      )}
+      {expenseEdit && (
+        <ExpenseEditModal
+          expense={expenseEdit.expense}
+          close={() => setExpenseEdit(undefined)}
+          save={(name, amount) => {
+            onChange?.({
+              ...p,
+              [expenseEdit.group]: p[expenseEdit.group].map((item) =>
+                item.id === expenseEdit.expense.id
+                  ? { ...item, name, amount }
+                  : item,
+              ),
+            });
+            setExpenseEdit(undefined);
           }}
         />
       )}
@@ -823,7 +848,7 @@ export function AddExpense({
 }) {
   const [type, setType] = useState("everyday");
   const [category, setCategory] = useState("");
-  const [status, setStatus] = useState<Status>("предстоит");
+  const [status, setStatus] = useState<Status>("оплачено");
   const [oneOffDate, setOneOffDate] = useState("");
   const [error, setError] = useState("");
   const draftAmount =
@@ -941,7 +966,7 @@ export function AddExpense({
             onChange={(e) => {
               setType(e.target.value);
               setCategory("");
-              setStatus("предстоит");
+              setStatus("оплачено");
               setOneOffDate("");
             }}
           >
@@ -2191,6 +2216,59 @@ function ModalActions({ close }: { close: () => void }) {
       </button>
       <button className="primary">сохранить</button>
     </div>
+  );
+}
+
+function ExpenseEditModal({
+  expense,
+  close,
+  save,
+}: {
+  expense: Expense;
+  close: () => void;
+  save: (name: string, amount: number) => void;
+}) {
+  const [name, setName] = useState(expense.name ?? "");
+  const [amount, setAmount] = useState(
+    formatInputAmount(String(expense.amount)),
+  );
+  const [error, setError] = useState("");
+  return (
+    <Modal title={expense.name || expense.category} onClose={close}>
+      <form
+        className="form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const trimmedName = name.trim().toLowerCase();
+          const parsedAmount = num(amount);
+          if (!trimmedName) return setError("введите название");
+          if (!validateAmount(parsedAmount) || parsedAmount === 0)
+            return setError("сумма расхода должна быть больше нуля");
+          save(trimmedName, parsedAmount);
+        }}
+      >
+        <Field label="название">
+          <input
+            autoFocus
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+        <Field label="сумма">
+          <input
+            inputMode="decimal"
+            placeholder="0"
+            value={amount}
+            onChange={(event) =>
+              setAmount(formatInputAmount(event.target.value))
+            }
+          />
+        </Field>
+        {error && <p className="error">{error}</p>}
+        <ModalActions close={close} />
+      </form>
+    </Modal>
   );
 }
 

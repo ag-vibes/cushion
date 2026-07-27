@@ -354,7 +354,7 @@ describe("period completion UI", () => {
         },
       ],
     };
-    render(
+    const { rerender } = render(
       <Home
         period={current}
         go={vi.fn()}
@@ -367,6 +367,45 @@ describe("period completion UI", () => {
       amount: 30000,
       status: "оплачено",
     });
+    rerender(
+      <Home
+        period={onChange.mock.calls[0][0]}
+        go={vi.fn()}
+        categoryOrder={["аренда"]}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.queryByText("оплачено")).toBeNull();
+    expect(screen.queryByRole("button", { name: "предстоит" })).toBeNull();
+  });
+
+  it("does not show paid statuses", () => {
+    render(
+      <Home
+        period={{
+          ...makePeriod(true),
+          mandatory: [
+            {
+              id: "rent",
+              category: "аренда",
+              amount: 30000,
+              status: "оплачено",
+            },
+          ],
+          oneOff: [
+            {
+              id: "trip",
+              category: "развлечения",
+              name: "поездка",
+              amount: 5000,
+              status: "оплачено",
+            },
+          ],
+        }}
+        go={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("оплачено")).toBeNull();
   });
 
   it("edits actual everyday expenses instead of limits on the period screen", () => {
@@ -414,6 +453,54 @@ describe("period completion UI", () => {
         name: "изменить лимит для категории еда",
       }),
     ).toBeNull();
+  });
+
+  it("adds or changes the name while editing one-off and impulse expenses", () => {
+    const save = vi.fn();
+    const current = {
+      ...makePeriod(true),
+      oneOff: [
+        {
+          id: "one-off",
+          category: "услуги",
+          amount: 3000,
+          status: "оплачено" as const,
+        },
+      ],
+      impulse: [
+        {
+          id: "impulse",
+          category: "покупки",
+          name: "старая свеча",
+          amount: 1000,
+        },
+      ],
+    };
+    render(
+      <PeriodScreen
+        data={{ ...makeData(), periods: [current, makePeriod(false)] }}
+        period={current}
+        save={save}
+        go={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "изменить расход услуги" }),
+    );
+    fireEvent.change(screen.getByLabelText("название"), {
+      target: { value: "Клининг" },
+    });
+    fireEvent.change(screen.getByLabelText("сумма"), {
+      target: { value: "3500" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
+    const saved = save.mock.calls[0][0] as AppData;
+    expect(
+      saved.periods.find((period) => period.current)?.oneOff[0],
+    ).toMatchObject({
+      name: "клининг",
+      amount: 3500,
+    });
   });
 
   it("asks for confirmation before deleting an expense", () => {
@@ -582,7 +669,7 @@ describe("expense creation", () => {
     });
   });
 
-  it("hides the date for a paid one-off expense", () => {
+  it("uses paid as the default status and shows a date only for planned expenses", () => {
     const data = {
       ...makeData(),
       categories: ["услуги"],
@@ -600,14 +687,18 @@ describe("expense creation", () => {
       target: { value: "oneOff" },
     });
     expect(
-      screen.getByRole("textbox", { name: "дата, необязательно" }),
-    ).toBeTruthy();
-    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
-      target: { value: "оплачено" },
-    });
+      (screen.getByRole("combobox", { name: "статус" }) as HTMLSelectElement)
+        .value,
+    ).toBe("оплачено");
     expect(
       screen.queryByRole("textbox", { name: "дата, необязательно" }),
     ).toBeNull();
+    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
+      target: { value: "предстоит" },
+    });
+    expect(
+      screen.getByRole("textbox", { name: "дата, необязательно" }),
+    ).toBeTruthy();
   });
 
   it("requires a one-off name and dates a paid expense today", () => {
@@ -638,9 +729,6 @@ describe("expense creation", () => {
     });
     fireEvent.change(screen.getByRole("textbox", { name: "название" }), {
       target: { value: "Клининг" },
-    });
-    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
-      target: { value: "оплачено" },
     });
     fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
     expect(
@@ -709,6 +797,9 @@ describe("expense creation", () => {
     );
     fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
       target: { value: "mandatory" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
+      target: { value: "предстоит" },
     });
     fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
       target: { value: "аренда" },
