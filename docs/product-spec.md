@@ -232,7 +232,8 @@ Fields:
 
 - category;
 - amount;
-- status.
+- status;
+- optional date for `предстоит`.
 
 Statuses:
 
@@ -244,6 +245,9 @@ Rules:
 - the amount is reserved immediately when the payment is added to the period;
 - changing status from `предстоит` to `оплачено` must not subtract the amount again;
 - status is informational;
+- when an optional planned date arrives, status automatically becomes `оплачено`;
+- the planned date remains visible after the automatic status change;
+- manually changing an undated planned expense to `оплачено` records today's date;
 - a mandatory payment may be edited or deleted during the current period.
 
 #### Mandatory expense settings
@@ -336,6 +340,7 @@ One-off expenses are known non-recurring expenses planned for the current period
 Fields:
 
 - category;
+- required name;
 - amount;
 - optional date;
 - status.
@@ -352,7 +357,9 @@ Rules:
 - a `предстоит` expense may have an optional date;
 - when that date arrives, its status automatically becomes `оплачено`;
 - without a date, `предстоит` remains unchanged until the user changes it;
-- an expense created as `оплачено` has no date;
+- an expense created as `оплачено` receives today's date;
+- manually changing an undated planned expense to `оплачено` records today's date;
+- the planned date remains visible after an automatic status change;
 - both statuses remain editable on `главная`;
 - the expense may be edited or deleted during the current period.
 
@@ -363,12 +370,14 @@ Impulse purchases are unplanned purchases recorded after the decision or purchas
 Fields:
 
 - category;
+- required name;
 - amount.
 
 Rules:
 
 - the amount reduces free money immediately;
-- no date or status is required in the MVP;
+- today's date is recorded automatically;
+- no status is required;
 - the purchase may be edited or deleted during the current period.
 
 ## 8. Free money calculation
@@ -529,8 +538,18 @@ Each item contains:
 - name;
 - amount.
 
-Wishlist items do not have an expense category and do not affect free money.
-Adding an actual expense never happens automatically.
+Wishlist items do not affect free money until completed. Completion is a
+one-way checkbox action available only while an active period exists. A
+completed item becomes grey, struck through and moves below open items.
+
+Completing an item creates one paid one-off expense in the current period with:
+
+- category `покупки`;
+- the wishlist item's required name and amount;
+- the completion date.
+
+The resulting expense reduces free money once. A completed wishlist item cannot
+be reopened and cannot create a duplicate expense.
 
 ### 11.8 Mandatory expense settings
 
