@@ -144,7 +144,6 @@ describe("wishlist", () => {
       category: "покупки",
       name: "новая сумка",
       amount: 15000,
-      status: "оплачено",
       date: "2026-07-27",
     });
   });
@@ -754,7 +753,7 @@ describe("expense creation", () => {
     });
   });
 
-  it("uses paid as the default status and shows a date only for planned expenses", () => {
+  it("does not show status or date controls for an unplanned expense", () => {
     const data = {
       ...makeData(),
       categories: ["услуги"],
@@ -771,19 +770,10 @@ describe("expense creation", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
       target: { value: "oneOff" },
     });
-    expect(
-      (screen.getByRole("combobox", { name: "статус" }) as HTMLSelectElement)
-        .value,
-    ).toBe("оплачено");
+    expect(screen.queryByRole("combobox", { name: "статус" })).toBeNull();
     expect(
       screen.queryByRole("textbox", { name: "дата, необязательно" }),
     ).toBeNull();
-    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
-      target: { value: "предстоит" },
-    });
-    expect(
-      screen.getByRole("textbox", { name: "дата, необязательно" }),
-    ).toBeTruthy();
   });
 
   it("requires a one-off name and dates a paid expense today", () => {
@@ -821,7 +811,6 @@ describe("expense creation", () => {
         ?.oneOff[0],
     ).toMatchObject({
       name: "клининг",
-      status: "оплачено",
       date: "2026-07-27",
     });
   });
@@ -883,9 +872,10 @@ describe("expense creation", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
       target: { value: "mandatory" },
     });
-    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
-      target: { value: "предстоит" },
-    });
+    expect(
+      (screen.getByRole("combobox", { name: "статус" }) as HTMLSelectElement)
+        .value,
+    ).toBe("предстоит");
     fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
       target: { value: "аренда" },
     });
@@ -904,6 +894,47 @@ describe("expense creation", () => {
       status: "предстоит",
       date: "2026-07-29",
     });
+  });
+
+  it("allows several planned expenses in one category and an optional name", () => {
+    const save = vi.fn();
+    const data = {
+      ...makeData(),
+      categories: ["красота"],
+      categoryTypes: { красота: ["mandatory" as const] },
+    };
+    const current = {
+      ...data.periods.find((item) => item.current)!,
+      mandatory: [
+        {
+          id: "first",
+          category: "красота",
+          name: "стрижка",
+          amount: 3000,
+          status: "предстоит" as const,
+        },
+      ],
+    };
+    render(
+      <AddExpense data={data} period={current} save={save} done={vi.fn()} />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
+      target: { value: "mandatory" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
+      target: { value: "красота" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
+      target: { value: "5000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
+    const saved = save.mock.calls[0][0] as AppData;
+    expect(saved.periods.find((item) => item.current)?.mandatory).toHaveLength(
+      2,
+    );
+    expect(
+      saved.periods.find((item) => item.current)?.mandatory[1].name,
+    ).toBeUndefined();
   });
 
   it("keeps a planned date inside the future part of the current period", () => {
@@ -1000,18 +1031,18 @@ describe("category settings UI", () => {
     const limitHeading = screen.getByRole("heading", {
       name: "повседневные лимиты",
     });
-    const mandatoryHeading = screen.getByRole("heading", {
-      name: "обязательные расходы",
+    const plannedHeading = screen.getByRole("heading", {
+      name: "запланированные расходы",
     });
     const categoryHeading = screen.getByRole("heading", {
       name: "категории",
     });
     expect(
-      limitHeading.compareDocumentPosition(mandatoryHeading) &
+      plannedHeading.compareDocumentPosition(limitHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      mandatoryHeading.compareDocumentPosition(categoryHeading) &
+      limitHeading.compareDocumentPosition(categoryHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     fireEvent.click(

@@ -76,7 +76,7 @@ describe("financial calculations", () => {
     };
     expect(freeMoney(a)).toBe(freeMoney(b));
   });
-  it("settles dated one-off and mandatory expenses without changing free money", () => {
+  it("settles dated planned expenses without changing free money", () => {
     const current = period({
       mandatory: [
         {
@@ -118,11 +118,7 @@ describe("financial calculations", () => {
       date: "2026-07-23",
     });
     expect(settled.periods[0].oneOff).toEqual([
-      expect.objectContaining({
-        id: "o",
-        status: "оплачено",
-        date: "2026-07-23",
-      }),
+      expect.objectContaining({ id: "o", status: "предстоит" }),
       expect.objectContaining({ id: "later", status: "предстоит" }),
       expect.objectContaining({ id: "undated", status: "предстоит" }),
     ]);
@@ -389,5 +385,43 @@ describe("financial calculations", () => {
     expect(periodState(current, "2026-08-03")).toBe("active");
     expect(periodState(current, "2026-08-04")).toBe("salary-day");
     expect(periodState(current, "2026-08-05")).toBe("finished");
+  });
+});
+
+describe("expense type migration", () => {
+  it("moves legacy planned one-off expenses into planned expenses", () => {
+    const raw = {
+      ...emptyData(),
+      periods: [
+        period({
+          mandatory: [],
+          oneOff: [
+            {
+              id: "future",
+              category: "сплит",
+              amount: 2000,
+              status: "предстоит" as const,
+              date: "2026-07-29",
+            },
+            {
+              id: "done",
+              category: "услуги",
+              amount: 3000,
+              status: "оплачено" as const,
+              date: "2026-07-20",
+            },
+          ],
+        }),
+      ],
+    };
+
+    const migrated = normalizeData(raw);
+
+    expect(migrated.periods[0].mandatory).toEqual([
+      expect.objectContaining({ id: "future", status: "предстоит" }),
+    ]);
+    expect(migrated.periods[0].oneOff).toEqual([
+      expect.objectContaining({ id: "done", status: undefined }),
+    ]);
   });
 });

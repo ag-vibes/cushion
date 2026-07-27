@@ -163,35 +163,61 @@ export const normalizeData = (raw: unknown): AppData => {
     ...item,
     category: translateCategory(item.category),
   });
-  const periods = (source.periods ?? []).map((period) => ({
-    ...period,
-    mandatory: period.mandatory.filter((item) => item.amount > 0).map(expense),
-    everyday: period.everyday
-      .map((item) => ({
-        ...item,
-        expenses: item.expenses.filter((expenseItem) => expenseItem.amount > 0),
-      }))
-      .filter((item) => item.limit > 0 || item.expenses.length > 0)
-      .map((item) => {
-        const automatic =
-          item.automatic === true ||
-          likelyAutomaticCategories.has(translateCategory(item.category)) ||
-          (period.current && item.limit === 0 && item.expenses.length > 0);
-        return {
+  const periods = (source.periods ?? []).map((period) => {
+    const normalizedMandatory = period.mandatory
+      .filter((item) => item.amount > 0)
+      .map(expense);
+    const normalizedOneOff = period.oneOff
+      .filter((item) => item.amount > 0)
+      .map(expense);
+    const migratedPlanned = normalizedOneOff.filter(
+      (item) => item.status === "предстоит",
+    );
+    return {
+      ...period,
+      mandatory: [...normalizedMandatory, ...migratedPlanned],
+      everyday: period.everyday
+        .map((item) => ({
           ...item,
-          category: translateCategory(item.category),
-          limit: automatic
-            ? item.expenses.reduce(
-                (sum, expenseItem) => sum + expenseItem.amount,
-                0,
-              )
-            : item.limit,
-          automatic,
-        };
-      }),
-    oneOff: period.oneOff.filter((item) => item.amount > 0).map(expense),
-    impulse: period.impulse.filter((item) => item.amount > 0).map(expense),
-  }));
+          expenses: item.expenses.filter(
+            (expenseItem) => expenseItem.amount > 0,
+          ),
+        }))
+        .filter((item) => item.limit > 0 || item.expenses.length > 0)
+        .map((item) => {
+          const automatic =
+            item.automatic === true ||
+            likelyAutomaticCategories.has(translateCategory(item.category)) ||
+            (period.current && item.limit === 0 && item.expenses.length > 0);
+          return {
+            ...item,
+            category: translateCategory(item.category),
+            limit: automatic
+              ? item.expenses.reduce(
+                  (sum, expenseItem) => sum + expenseItem.amount,
+                  0,
+                )
+              : item.limit,
+            automatic,
+          };
+        }),
+      oneOff: normalizedOneOff
+        .filter((item) => item.status !== "предстоит")
+        .map((item) => ({ ...item, status: undefined })),
+      impulse: period.impulse
+        .filter((item) => item.amount > 0)
+        .map(expense)
+        .map((item) => ({ ...item, status: undefined })),
+    };
+  });
+  periods
+    .flatMap((period) => period.mandatory)
+    .filter((item) => item.status === "предстоит")
+    .forEach((item) => {
+      const types = categoryTypes[item.category] ?? [];
+      if (!types.includes("mandatory"))
+        categoryTypes[item.category] = ["mandatory", ...types];
+    });
   const legacyLimitSource =
     periods.find((period) => period.current)?.everyday ??
     periods[periods.length - 1]?.everyday ??
@@ -389,8 +415,7 @@ export const settleScheduledExpenses = (
       return expense;
     };
     const mandatory = period.mandatory.map(settle);
-    const oneOff = period.oneOff.map(settle);
-    return changed ? { ...period, mandatory, oneOff } : period;
+    return changed ? { ...period, mandatory } : period;
   });
   return changed ? { ...data, periods } : data;
 };

@@ -390,7 +390,7 @@ function Groups({
     category: string;
     apply: () => void;
   }>();
-  const status = (group: "mandatory" | "oneOff", e: Expense) => {
+  const status = (e: Expense) => {
     if (e.status !== "предстоит") return null;
     const interactive = (editable || statusEditable) && onChange;
     const className = "status planned";
@@ -400,7 +400,7 @@ function Groups({
         onClick={() =>
           onChange({
             ...p,
-            [group]: p[group].map((x) =>
+            mandatory: p.mandatory.map((x) =>
               x.id === e.id
                 ? { ...x, status: "оплачено", date: x.date ?? todayIso() }
                 : x,
@@ -419,7 +419,7 @@ function Groups({
     value: number,
     apply: (n: number) => void,
   ) => setAmountEdit({ title, value, apply });
-  const row = (e: Expense, group?: "mandatory" | "oneOff") => (
+  const row = (e: Expense, group: "mandatory" | "oneOff" | "impulse") => (
     <div className="row" key={e.id}>
       <span>
         {e.category}
@@ -429,7 +429,7 @@ function Groups({
         )}
       </span>
       <span className="expense-trailing">
-        {group && status(group, e)}
+        {group === "mandatory" && status(e)}
         {money(e.amount)}
         {editable && (
           <>
@@ -437,8 +437,7 @@ function Groups({
               className="icon"
               aria-label={`изменить расход ${e.category}`}
               onClick={() => {
-                const targetGroup = group ?? "impulse";
-                setExpenseEdit({ expense: e, group: targetGroup });
+                setExpenseEdit({ expense: e, group });
               }}
             >
               ✎
@@ -452,9 +451,7 @@ function Groups({
                   apply: () =>
                     onChange?.({
                       ...p,
-                      [group ?? "impulse"]: (
-                        p[group ?? "impulse"] as Expense[]
-                      ).filter((x) => x.id !== e.id),
+                      [group]: p[group].filter((x) => x.id !== e.id),
                     }),
                 })
               }
@@ -549,8 +546,8 @@ function Groups({
     <>
       <div className="groups">
         <Group
-          title="обязательные расходы"
-          empty="обязательных расходов пока нет"
+          title="запланированные расходы"
+          empty="запланированных расходов пока нет"
         >
           {ordered(p.mandatory).map((e) => row(e, "mandatory"))}
         </Group>
@@ -593,14 +590,14 @@ function Groups({
               );
             })}
         </section>
-        <Group title="разовые расходы" empty="разовых расходов не было">
+        <Group title="внеплановые расходы" empty="внеплановых расходов не было">
           {ordered(p.oneOff).map((e) => row(e, "oneOff"))}
         </Group>
         <Group
           title="импульсивные покупки"
           empty="импульсивных покупок не было"
         >
-          {ordered(p.impulse).map((e) => row(e))}
+          {ordered(p.impulse).map((e) => row(e, "impulse"))}
         </Group>
       </div>
       {amountEdit && (
@@ -628,7 +625,7 @@ function Groups({
                 item.id === expenseEdit.expense.id
                   ? {
                       ...item,
-                      ...(name === undefined ? {} : { name }),
+                      name,
                       amount,
                       date,
                     }
@@ -911,7 +908,7 @@ export function AddExpense({
       everydayLimits = syncAutomaticEverydaySettings(everydayLimits, p);
     } else {
       const date =
-        (type === "mandatory" || type === "oneOff") && status === "предстоит"
+        type === "mandatory" && status === "предстоит"
           ? oneOffDate
             ? fromRuDate(oneOffDate)
             : undefined
@@ -919,7 +916,7 @@ export function AddExpense({
             ? todayIso()
             : undefined;
       if (
-        (type === "mandatory" || type === "oneOff") &&
+        type === "mandatory" &&
         status === "предстоит" &&
         oneOffDate &&
         !date
@@ -928,7 +925,7 @@ export function AddExpense({
         return;
       }
       if (
-        (type === "mandatory" || type === "oneOff") &&
+        type === "mandatory" &&
         status === "предстоит" &&
         date &&
         (date <= todayIso() || date > period.nextSalaryDate)
@@ -941,7 +938,7 @@ export function AddExpense({
         category,
         amount,
         ...(name ? { name } : {}),
-        status: type === "mandatory" || type === "oneOff" ? status : undefined,
+        status: type === "mandatory" ? status : undefined,
         date,
       };
       p = {
@@ -976,13 +973,15 @@ export function AddExpense({
             onChange={(e) => {
               setType(e.target.value);
               setCategory("");
-              setStatus("оплачено");
+              setStatus(
+                e.target.value === "mandatory" ? "предстоит" : "оплачено",
+              );
               setOneOffDate("");
             }}
           >
-            <option value="mandatory">обязательные расходы</option>
+            <option value="mandatory">запланированные расходы</option>
             <option value="everyday">повседневные расходы</option>
-            <option value="oneOff">разовые расходы</option>
+            <option value="oneOff">внеплановые расходы</option>
             <option value="impulse">импульсивные покупки</option>
           </select>
         </Field>
@@ -1014,12 +1013,15 @@ export function AddExpense({
             onInput={formatAmountField}
           />
         </Field>
-        {(type === "oneOff" || type === "impulse") && (
+        {(type === "mandatory" || type === "oneOff" || type === "impulse") && (
           <Field label="название">
-            <input name="name" required />
+            <input
+              name="name"
+              required={type === "oneOff" || type === "impulse"}
+            />
           </Field>
         )}
-        {(type === "mandatory" || type === "oneOff") && (
+        {type === "mandatory" && (
           <Field label="статус">
             <select
               name="status"
@@ -1035,16 +1037,15 @@ export function AddExpense({
             </select>
           </Field>
         )}
-        {(type === "mandatory" || type === "oneOff") &&
-          status === "предстоит" && (
-            <Field label="дата, необязательно">
-              <DateInput
-                name="date"
-                value={oneOffDate}
-                onChange={setOneOffDate}
-              />
-            </Field>
-          )}
+        {type === "mandatory" && status === "предстоит" && (
+          <Field label="дата, необязательно">
+            <DateInput
+              name="date"
+              value={oneOffDate}
+              onChange={setOneOffDate}
+            />
+          </Field>
+        )}
         {error && <p className="error">{error}</p>}
         <button className="primary">добавить расход</button>
       </form>
@@ -1419,7 +1420,6 @@ export function Wishlist({
                                     category: "покупки",
                                     name: item.name,
                                     amount: item.amount,
-                                    status: "оплачено",
                                     date: completionDate,
                                   },
                                 ],
@@ -1509,9 +1509,9 @@ export function Wishlist({
 }
 
 const expenseTypeOptions: [ExpenseKind, string][] = [
-  ["mandatory", "обязательные расходы"],
+  ["mandatory", "запланированные расходы"],
   ["everyday", "повседневные расходы"],
-  ["oneOff", "разовые расходы"],
+  ["oneOff", "внеплановые расходы"],
   ["impulse", "импульсивные покупки"],
 ];
 
@@ -1541,9 +1541,9 @@ export function Categories({
     dragOrder.current = data.categories;
   }, [data.categories]);
   const typeLabels: Record<ExpenseKind, string> = {
-    mandatory: "обязательные",
+    mandatory: "запланированные",
     everyday: "повседневные",
-    oneOff: "разовые",
+    oneOff: "внеплановые",
     impulse: "импульсивные",
   };
   const beginEdit = (category: string) => {
@@ -1661,6 +1661,30 @@ export function Categories({
     <section>
       <Top title="настройка категорий" back={back} />
       <div className="card settings-card">
+        <h2>запланированные расходы</h2>
+        {mandatoryCategories.map((category) => {
+          const draft = data.drafts.find((item) => item.category === category);
+          return (
+            <SettingsRow
+              key={category}
+              label={category}
+              trailing={
+                <>
+                  {money(draft?.amount ?? 0)}{" "}
+                  <button
+                    className="icon"
+                    aria-label={`изменить сумму для категории ${category}`}
+                    onClick={() => setDraftCategory(category)}
+                  >
+                    ✎
+                  </button>
+                </>
+              }
+            />
+          );
+        })}
+      </div>
+      <div className="card settings-card">
         <h2>повседневные лимиты</h2>
         {everydayCategories.map((category) => {
           const setting = data.everydayLimits.find(
@@ -1677,30 +1701,6 @@ export function Categories({
                     className="icon"
                     aria-label={`изменить лимит для категории ${category}`}
                     onClick={() => setLimitCategory(category)}
-                  >
-                    ✎
-                  </button>
-                </>
-              }
-            />
-          );
-        })}
-      </div>
-      <div className="card settings-card">
-        <h2>обязательные расходы</h2>
-        {mandatoryCategories.map((category) => {
-          const draft = data.drafts.find((item) => item.category === category);
-          return (
-            <SettingsRow
-              key={category}
-              label={category}
-              trailing={
-                <>
-                  {money(draft?.amount ?? 0)}{" "}
-                  <button
-                    className="icon"
-                    aria-label={`изменить сумму для категории ${category}`}
-                    onClick={() => setDraftCategory(category)}
                   >
                     ✎
                   </button>
@@ -2016,7 +2016,7 @@ export function Categories({
                           { id: uid(), category: draftCategory, amount },
                         ],
               },
-              "обязательный расход сохранён",
+              "сумма запланированного расхода сохранена",
             );
             setDraftCategory(undefined);
           }}
@@ -2251,10 +2251,9 @@ function ExpenseEditModal({
     expense.date ? toRuDate(expense.date) : "",
   );
   const [error, setError] = useState("");
-  const hasName = group === "oneOff" || group === "impulse";
-  const canEditDate =
-    (group === "mandatory" || group === "oneOff") &&
-    expense.status === "предстоит";
+  const hasName = true;
+  const nameRequired = group === "oneOff" || group === "impulse";
+  const canEditDate = group === "mandatory" && expense.status === "предстоит";
   return (
     <Modal title={expense.name || expense.category} onClose={close}>
       <form
@@ -2263,7 +2262,7 @@ function ExpenseEditModal({
           event.preventDefault();
           const trimmedName = name.trim().toLowerCase();
           const parsedAmount = num(amount);
-          if (hasName && !trimmedName) return setError("введите название");
+          if (nameRequired && !trimmedName) return setError("введите название");
           if (!validateAmount(parsedAmount) || parsedAmount === 0)
             return setError("сумма расхода должна быть больше нуля");
           const date = canEditDate
@@ -2277,14 +2276,14 @@ function ExpenseEditModal({
             return setError(
               "дата должна быть позже сегодняшней и не позже конца периода",
             );
-          save(hasName ? trimmedName : undefined, parsedAmount, date);
+          save(trimmedName || undefined, parsedAmount, date);
         }}
       >
         {hasName && (
           <Field label="название">
             <input
               autoFocus
-              required
+              required={nameRequired}
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
