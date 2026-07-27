@@ -250,8 +250,11 @@ Rules:
 - selecting `предстоит` changes the status to `оплачено`, after which the status label disappears;
 - `оплачено` is never displayed as a status label;
 - when an optional planned date arrives, status automatically becomes `оплачено`;
-- the planned date remains visible after the automatic status change;
 - manually changing an undated planned expense to `оплачено` records today's date;
+- an expense created as `оплачено` records today's date;
+- the date is shown on `период`, but not on `главная`;
+- while the status is `предстоит`, the optional date may be added, changed or removed from `период`;
+- a planned date must be later than today and no later than the current period's next-salary date;
 - a mandatory payment may be edited or deleted during the current period.
 
 #### Mandatory expense settings
@@ -364,7 +367,9 @@ Rules:
 - without a date, `предстоит` remains unchanged until the user changes it;
 - an expense created as `оплачено` receives today's date;
 - manually changing an undated planned expense to `оплачено` records today's date;
-- the planned date remains visible after an automatic status change;
+- the date is shown on `период`, but not on `главная`;
+- while the status is `предстоит`, the optional date may be added, changed or removed from `период`;
+- a planned date must be later than today and no later than the current period's next-salary date;
 - only `предстоит` is displayed on `главная` and `период`;
 - selecting `предстоит` changes the expense to `оплачено` and removes the status label;
 - `оплачено` is never displayed as a status label;
@@ -385,6 +390,7 @@ Rules:
 
 - the amount reduces free money immediately;
 - today's date is recorded automatically;
+- the date is shown on `период`, but not on `главная`;
 - no status is required;
 - the name and amount of an existing impulse purchase may be edited;
 - the purchase may be edited or deleted during the current period.
