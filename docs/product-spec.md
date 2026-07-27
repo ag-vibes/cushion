@@ -252,7 +252,8 @@ Rules:
 - when an optional planned date arrives, status automatically becomes `оплачено`;
 - manually changing an undated planned expense to `оплачено` records today's date;
 - an expense created as `оплачено` records today's date;
-- the date is shown on `период`, but not on `главная`;
+- while the expense is `предстоит`, its date is shown on both `главная` and `период`;
+- after payment, the date remains visible only on `период`;
 - while the status is `предстоит`, the optional date may be added, changed or removed from `период`;
 - a planned date must be later than today and no later than the current period's next-salary date;
 - a mandatory payment may be edited or deleted during the current period.
@@ -367,7 +368,8 @@ Rules:
 - without a date, `предстоит` remains unchanged until the user changes it;
 - an expense created as `оплачено` receives today's date;
 - manually changing an undated planned expense to `оплачено` records today's date;
-- the date is shown on `период`, but not on `главная`;
+- while the expense is `предстоит`, its date is shown on both `главная` and `период`;
+- after payment, the date remains visible only on `период`;
 - while the status is `предстоит`, the optional date may be added, changed or removed from `период`;
 - a planned date must be later than today and no later than the current period's next-salary date;
 - only `предстоит` is displayed on `главная` and `период`;
