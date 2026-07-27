@@ -408,7 +408,7 @@ describe("period completion UI", () => {
     expect(screen.queryByText("оплачено")).toBeNull();
   });
 
-  it("shows non-everyday dates on the period screen but not on home", () => {
+  it("shows planned dates on home and all non-everyday dates on the period screen", () => {
     const current = {
       ...makePeriod(true),
       mandatory: [
@@ -442,7 +442,7 @@ describe("period completion UI", () => {
     };
     const data = { ...makeData(), periods: [current, makePeriod(false)] };
     const { rerender } = render(<Home period={current} go={vi.fn()} />);
-    expect(screen.queryByText("30 июля")).toBeNull();
+    expect(screen.getByText("30 июля")).toBeTruthy();
     expect(screen.queryByText("27 июля")).toBeNull();
     rerender(
       <PeriodScreen data={data} period={current} save={vi.fn()} go={vi.fn()} />,

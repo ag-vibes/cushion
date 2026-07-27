@@ -424,7 +424,9 @@ function Groups({
       <span>
         {e.category}
         {e.name && <small>{e.name}</small>}
-        {showDates && e.date && <small>{dateLabel(e.date)}</small>}
+        {(showDates || e.status === "предстоит") && e.date && (
+          <small>{dateLabel(e.date)}</small>
+        )}
       </span>
       <span className="expense-trailing">
         {group && status(group, e)}
