@@ -572,7 +572,7 @@ describe("period completion UI", () => {
       screen.getByRole("button", { name: "изменить расход аренда" }),
     );
     fireEvent.change(
-      screen.getByRole("textbox", { name: "дата, необязательно" }),
+      screen.getByRole("textbox", { name: "дата (необязательно)" }),
       { target: { value: "30072026" } },
     );
     fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
@@ -772,7 +772,7 @@ describe("expense creation", () => {
     });
     expect(screen.queryByRole("combobox", { name: "статус" })).toBeNull();
     expect(
-      screen.queryByRole("textbox", { name: "дата, необязательно" }),
+      screen.queryByRole("textbox", { name: "дата (необязательно)" }),
     ).toBeNull();
   });
 
@@ -883,7 +883,7 @@ describe("expense creation", () => {
       target: { value: "30000" },
     });
     fireEvent.change(
-      screen.getByRole("textbox", { name: "дата, необязательно" }),
+      screen.getByRole("textbox", { name: "дата (необязательно)" }),
       { target: { value: "29072026" } },
     );
     fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
@@ -967,7 +967,7 @@ describe("expense creation", () => {
       target: { value: "предстоит" },
     });
     fireEvent.change(
-      screen.getByRole("textbox", { name: "дата, необязательно" }),
+      screen.getByRole("textbox", { name: "дата (необязательно)" }),
       { target: { value: "27072026" } },
     );
     fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));

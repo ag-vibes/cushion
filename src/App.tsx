@@ -1014,7 +1014,11 @@ export function AddExpense({
           />
         </Field>
         {(type === "mandatory" || type === "oneOff" || type === "impulse") && (
-          <Field label="название">
+          <Field
+            label={
+              type === "mandatory" ? "название (необязательно)" : "название"
+            }
+          >
             <input
               name="name"
               required={type === "oneOff" || type === "impulse"}
@@ -1038,7 +1042,7 @@ export function AddExpense({
           </Field>
         )}
         {type === "mandatory" && status === "предстоит" && (
-          <Field label="дата, необязательно">
+          <Field label="дата (необязательно)">
             <DateInput
               name="date"
               value={oneOffDate}
@@ -2280,7 +2284,7 @@ function ExpenseEditModal({
         }}
       >
         {hasName && (
-          <Field label="название">
+          <Field label={nameRequired ? "название" : "название (необязательно)"}>
             <input
               autoFocus
               required={nameRequired}
@@ -2301,7 +2305,7 @@ function ExpenseEditModal({
           />
         </Field>
         {canEditDate && (
-          <Field label="дата, необязательно">
+          <Field label="дата (необязательно)">
             <DateInput value={plannedDate} onChange={setPlannedDate} />
           </Field>
         )}
