@@ -20,9 +20,9 @@ The MVP must support:
 
 - creating a financial period;
 - carrying the previous balance into a new period;
-- planning mandatory payments;
+- planning known expenses;
 - setting everyday spending limits;
-- adding one-off expenses;
+- adding unplanned expenses;
 - adding impulse purchases;
 - calculating free money;
 - updating expenses during the period;
@@ -71,7 +71,7 @@ All interface text must start with a lowercase letter unless Russian grammar req
 Examples:
 
 - `свободные деньги`
-- `обязательные платежи`
+- `запланированные расходы`
 - `добавить расход`
 - `предстоит`
 - `оплачено`
@@ -84,9 +84,9 @@ Do not use title case.
 | ------------------ | ------------------------------ |
 | Free Money         | `свободные деньги`             |
 | Financial Period   | `период`                       |
-| Mandatory Payments | `обязательные расходы`         |
+| Planned Expenses   | `запланированные расходы`      |
 | Everyday Expenses  | `повседневные расходы`         |
-| One-off Expenses   | `разовые расходы`              |
+| Unplanned Expenses | `внеплановые расходы`          |
 | Impulse Purchases  | `импульсивные покупки`         |
 | Add Expense        | `добавить расход`              |
 | Home               | `главная`                      |
@@ -161,9 +161,9 @@ A period contains:
 - next salary date;
 - income;
 - previous balance;
-- selected mandatory payments;
+- planned expenses;
 - everyday spending limits;
-- one-off expenses;
+- unplanned expenses;
 - impulse purchases.
 
 Only one period can be current.
@@ -188,7 +188,7 @@ The start date defaults to today but remains editable. After saving, the app ope
 
 For a subsequent period, a positive final free-money amount from the previous period is offered as a grey previous-balance suggestion. Zero or a negative amount produces a `0` suggestion. The user may replace it.
 
-Mandatory expenses and one-off expenses are not copied automatically. Reusable everyday-limit settings are applied to the new period with spending reset to zero.
+Actual planned and unplanned expense entries are not copied automatically. Reusable planned-amount suggestions and everyday-limit settings remain available; everyday spending is reset to zero.
 
 ### 6.3 Previous balance
 
@@ -218,19 +218,18 @@ Every expense has:
 - category;
 - amount.
 
-There is no separate expense name field.
-
 The MVP supports four expense types.
 
-### 7.1 Mandatory payments
+### 7.1 Planned expenses
 
-Mandatory payments are known obligations reserved for the current period.
+Planned expenses are any expenses known in advance. They may recur, vary in amount or happen only once.
 
-Examples include rent, subscriptions, debt payments and instalments.
+Examples include rent, cleaning, beauty services and instalments.
 
 Fields:
 
 - category;
+- optional name;
 - amount;
 - status;
 - optional date for `предстоит`.
@@ -243,7 +242,7 @@ Statuses:
 Rules:
 
 - the amount is reserved immediately when the payment is added to the period;
-- the default status when creating an expense is `оплачено`;
+- the default status when creating an expense is `предстоит`;
 - changing status from `предстоит` to `оплачено` must not subtract the amount again;
 - status is informational;
 - only `предстоит` is displayed in expense lists;
@@ -256,21 +255,22 @@ Rules:
 - after payment, the date remains visible only on `период`;
 - while the status is `предстоит`, the optional date may be added, changed or removed from `период`;
 - a planned date must be later than today and no later than the current period's next-salary date;
-- a mandatory payment may be edited or deleted during the current period.
+- several planned expenses may use the same category in one period;
+- each entry keeps its own name, amount, date and status;
+- a planned expense may be edited or deleted during the current period.
 
-#### Mandatory expense settings
+#### Planned expense amount suggestions
 
-Reusable mandatory-expense settings are managed in `ещё` → `настройка категорий`.
+Reusable planned-expense amount suggestions are managed in `ещё` → `настройка категорий`.
 
 Each setting contains:
 
 - category;
-- last amount;
-- last payment date.
+- suggested amount.
 
-The app must not automatically add all previous mandatory payments.
+The app must not automatically add previous planned expenses.
 
-When the user chooses a mandatory category in `добавить расход`, its saved amount appears as a grey suggestion. The user may accept or replace it before saving the expense.
+When the user chooses a planned category in `добавить расход`, a positive saved amount appears as a grey suggestion. Zero means that no suggestion is set. The user may accept or replace the suggestion before saving.
 
 The setting never creates an actual expense automatically. This avoids incorrect copying of payments with different recurrence frequencies.
 
@@ -341,41 +341,22 @@ An expense amount must be greater than zero. A zero-value expense is not a
 financial operation and must not keep an everyday category visible. Existing
 zero-value expense records are removed when stored data is loaded.
 
-### 7.3 One-off expenses
+### 7.3 Unplanned expenses
 
-One-off expenses are known non-recurring expenses planned for the current period.
+Unplanned expenses are non-impulsive expenses that arose during the period and have already happened. An expense known in advance belongs to planned expenses instead.
 
 Fields:
 
 - category;
 - required name;
 - amount;
-- optional date;
-- status.
+  Rules:
 
-Statuses:
-
-- `предстоит`
-- `оплачено`
-
-Rules:
-
-- the amount is reserved immediately;
-- the default status when creating an expense is `оплачено`;
-- changing status must not subtract the amount again;
-- a `предстоит` expense may have an optional date;
-- when that date arrives, its status automatically becomes `оплачено`;
-- without a date, `предстоит` remains unchanged until the user changes it;
-- an expense created as `оплачено` receives today's date;
-- manually changing an undated planned expense to `оплачено` records today's date;
-- while the expense is `предстоит`, its date is shown on both `главная` and `период`;
-- after payment, the date remains visible only on `период`;
-- while the status is `предстоит`, the optional date may be added, changed or removed from `период`;
-- a planned date must be later than today and no later than the current period's next-salary date;
-- only `предстоит` is displayed on `главная` and `период`;
-- selecting `предстоит` changes the expense to `оплачено` and removes the status label;
-- `оплачено` is never displayed as a status label;
-- the name and amount of an existing one-off expense may be edited;
+- the amount is subtracted immediately;
+- there is no status or date input;
+- today's date is recorded automatically;
+- the date is hidden on `главная` and shown on `период`;
+- the name and amount may be edited;
 - the expense may be edited or deleted during the current period.
 
 ### 7.4 Impulse purchases
@@ -405,9 +386,9 @@ The calculation is:
 free money =
 income
 + previous balance
-- planned mandatory payments
+- planned expenses
 - max(everyday limit, everyday spent)
-- planned one-off expenses
+- unplanned expenses
 - impulse purchases
 ```
 
@@ -415,7 +396,7 @@ The full everyday limit is reserved while spending stays within it. If actual
 spending exceeds a fixed limit, free money uses the larger actual amount so it
 is never overstated.
 
-Mandatory and one-off expenses are counted once regardless of status.
+Planned expenses are counted once regardless of status.
 
 The UI must update free money immediately after every relevant change.
 
@@ -461,9 +442,9 @@ Must display:
 - current period dates;
 - days until next salary;
 - `свободные деньги`;
-- `обязательные платежи`;
+- `запланированные расходы`;
 - `повседневные расходы`;
-- `разовые расходы`;
+- `внеплановые расходы`;
 - `импульсивные покупки`.
 
 Primary action:
@@ -474,7 +455,7 @@ The primary action is placed immediately below the period hero and scrolls with 
 
 The free money value must be the strongest visual element.
 
-Within every expense group, rows follow the shared category order configured in `ещё`; entering or editing amounts must not reorder them. Only the `предстоит` status of mandatory and one-off expenses is shown on `главная`. Selecting it changes the expense to `оплачено` and removes the status label without changing free money.
+Within every expense group, rows follow the shared category order configured in `ещё`; entering or editing amounts must not reorder them. Only planned expenses have a status. The `предстоит` status is shown on `главная` and `период`; selecting it changes the expense to `оплачено` and removes the status label without changing free money.
 
 ### 11.2 Добавить расход
 
@@ -484,14 +465,14 @@ This is one dynamic form.
 
 The first field is expense type:
 
-- `обязательные платежи`
+- `запланированные расходы`
 - `повседневные расходы`
-- `разовые расходы`
+- `внеплановые расходы`
 - `импульсивные покупки`
 
 The remaining fields change according to the selected type.
 
-Mandatory payment creation remains available here as an edge case.
+Planned expense creation is available here and permits repeated entries in the same category.
 
 ### 11.3 Период
 
@@ -499,7 +480,7 @@ Purpose: manage the current financial period.
 
 Must support:
 
-- correcting or deleting previously entered mandatory, everyday, one-off and impulse expenses;
+- correcting or deleting previously entered planned, everyday, unplanned and impulse expenses;
 - viewing and editing period dates, income and previous balance where allowed;
 - adding income;
 - clearing the current period after confirmation.
@@ -520,7 +501,7 @@ Purpose: provide infrequent management actions.
 
 Contains:
 
-- combined everyday-limit, mandatory-expense and category settings;
+- combined planned-amount, everyday-limit and category settings;
 - wishlist;
 - period history;
 - backup.
@@ -531,8 +512,8 @@ Purpose: manage reusable budget settings and the category list.
 
 Sections appear in this order:
 
-1. `повседневные лимиты`;
-2. `обязательные расходы`;
+1. `запланированные расходы`;
+2. `повседневные лимиты`;
 3. `категории`.
 
 The screen must support:
@@ -559,7 +540,7 @@ Wishlist items do not affect free money until completed. Completion is a
 one-way checkbox action available only while an active period exists. A
 completed item becomes grey, struck through and moves below open items.
 
-Completing an item creates one paid one-off expense in the current period with:
+Completing an item creates one unplanned expense in the current period with:
 
 - category `покупки`;
 - the wishlist item's required name and amount;
@@ -568,9 +549,9 @@ Completing an item creates one paid one-off expense in the current period with:
 The resulting expense reduces free money once. A completed wishlist item cannot
 be reopened and cannot create a duplicate expense.
 
-### 11.8 Mandatory expense settings
+### 11.8 Planned expense amount settings
 
-Purpose: manage reusable mandatory-expense settings.
+Purpose: manage reusable planned-expense amount suggestions.
 
 The user may:
 
@@ -578,7 +559,7 @@ The user may:
 - edit category and amount;
 - delete a setting.
 
-Drafts are suggestions only and are never automatically added to a new period.
+Saved amounts are suggestions only and are never automatically added to a new period.
 
 ### 11.9 Period history
 
@@ -659,8 +640,8 @@ Empty states should explain the next action without promotional language.
 Examples:
 
 - no current period: offer to create a period;
-- no mandatory payments: offer to add one;
-- no one-off expenses: state that none are planned;
+- no planned expenses: state that none have been added;
+- no unplanned expenses: state that none have been added;
 - no impulse purchases: state that none have been added;
 - no history: state that completed periods will appear here.
 
@@ -671,11 +652,11 @@ All empty-state text must follow the lowercase rule.
 The MVP is ready for use when the user can:
 
 1. create a financial period;
-2. use saved mandatory-expense amounts as optional suggestions;
+2. use saved planned-expense amounts as optional suggestions;
 3. edit reusable everyday limits in `ещё` and see the current period update without changing completed history;
 4. add all four expense types;
 5. see free money update correctly;
-6. mark mandatory and one-off expenses as paid without double subtraction;
+6. mark planned expenses as paid without double subtraction;
 7. create the next period while preserving history;
 8. manage Russian-language categories;
 9. create and restore a JSON backup;
