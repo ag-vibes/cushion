@@ -231,8 +231,7 @@ Fields:
 - category;
 - optional name;
 - amount;
-- status;
-- optional date for `предстоит`.
+- required date.
 
 Statuses:
 
@@ -241,20 +240,22 @@ Statuses:
 
 Rules:
 
-- the amount is reserved immediately when the payment is added to the period;
-- the default status when creating an expense is `предстоит`;
+- the amount is reserved immediately when the expense is added, regardless of its date;
+- there is no status field in the creation form;
+- the app derives status from the required date;
+- today's date creates an immediately paid expense;
+- a future date creates an expense with status `предстоит`;
 - changing status from `предстоит` to `оплачено` must not subtract the amount again;
 - status is informational;
 - only `предстоит` is displayed in expense lists;
 - selecting `предстоит` changes the status to `оплачено`, after which the status label disappears;
 - `оплачено` is never displayed as a status label;
-- when an optional planned date arrives, status automatically becomes `оплачено`;
-- manually changing an undated planned expense to `оплачено` records today's date;
-- an expense created as `оплачено` records today's date;
+- when a future planned date arrives, status automatically becomes `оплачено`;
+- selecting `предстоит` before its date records today's date as the payment date;
 - while the expense is `предстоит`, its date is shown on both `главная` and `период`;
 - after payment, the date remains visible only on `период`;
-- while the status is `предстоит`, the optional date may be added, changed or removed from `период`;
-- a planned date must be later than today and no later than the current period's next-salary date;
+- while the status is `предстоит`, the date may be changed from `период`;
+- a planned date must be today or later and no later than the current period's next-salary date;
 - several planned expenses may use the same category in one period;
 - each entry keeps its own name, amount, date and status;
 - a planned expense may be edited or deleted during the current period.
