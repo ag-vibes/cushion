@@ -8,7 +8,7 @@ import {
   normalizeData,
   periodState,
   recalculateAutomaticEverydayLimits,
-  settleScheduledOneOffExpenses,
+  settleScheduledExpenses,
   spent,
   stillPlanned,
   suggestedPreviousBalance,
@@ -132,7 +132,7 @@ export function App() {
   const [notice, setNotice] = useState("");
   useEffect(() => {
     storage.load().then((loaded) => {
-      const settled = settleScheduledOneOffExpenses(loaded, todayIso());
+      const settled = settleScheduledExpenses(loaded, todayIso());
       setData(settled);
       if (settled !== loaded) storage.save(settled);
     });
@@ -141,7 +141,7 @@ export function App() {
     const timer = window.setInterval(() => {
       setData((current) => {
         if (!current) return current;
-        const settled = settleScheduledOneOffExpenses(current, todayIso());
+        const settled = settleScheduledExpenses(current, todayIso());
         if (settled !== current) storage.save(settled);
         return settled;
       });
@@ -152,7 +152,7 @@ export function App() {
     window.scrollTo(0, 0);
   }, [page]);
   const update = (next: AppData, msg = "") => {
-    const settled = settleScheduledOneOffExpenses(next, todayIso());
+    const settled = settleScheduledExpenses(next, todayIso());
     setData(settled);
     storage.save(settled);
     if (msg) {
@@ -305,6 +305,8 @@ export function Home({
     );
   const state = periodState(period, todayIso());
   const finished = state === "finished";
+  const availableMoney = freeMoney(period);
+  const hasFreeMoney = availableMoney > 0;
   return (
     <>
       {finished && (
@@ -319,7 +321,9 @@ export function Home({
       <section className="hero">
         <img
           className="hero-mascot"
-          src={`${import.meta.env.BASE_URL}mascot.svg`}
+          src={`${import.meta.env.BASE_URL}${
+            hasFreeMoney ? "mascot.svg" : "mascot-no-money.svg"
+          }`}
           alt=""
           aria-hidden="true"
         />
@@ -329,8 +333,12 @@ export function Home({
           </span>
           <span>{daysUntil(period.nextSalaryDate)} дней до зарплаты</span>
         </p>
-        <h1>{money(freeMoney(period))}</h1>
-        <span className="money-label">свободные деньги</span>
+        <h1 className={hasFreeMoney ? "" : "no-free-money"}>
+          {money(availableMoney)}
+        </h1>
+        <span className={`money-label ${hasFreeMoney ? "" : "no-free-money"}`}>
+          {hasFreeMoney ? "свободные деньги" : "свободных денег нет"}
+        </span>
       </section>
       {!finished && (
         <div className="home-actions">
@@ -388,7 +396,7 @@ function Groups({
               x.id === e.id
                 ? x.status === "оплачено"
                   ? { ...x, status: "предстоит", date: undefined }
-                  : { ...x, status: "оплачено", date: undefined }
+                  : { ...x, status: "оплачено", date: todayIso() }
                 : x,
             ),
           })
@@ -409,6 +417,7 @@ function Groups({
     <div className="row" key={e.id}>
       <span>
         {e.category}
+        {e.name && <small>{e.name}</small>}
         {e.date && <small>{dateLabel(e.date)}</small>}
       </span>
       <span className="expense-trailing">
@@ -558,7 +567,7 @@ function Groups({
             ordered(p.everyday).map((e) => {
               const usage = e.limit > 0 ? (spent(e) / e.limit) * 100 : 0;
               const progressTone =
-                usage >= 90 ? "danger" : usage >= 50 ? "warning" : "safe";
+                usage > 90 ? "danger" : usage >= 70 ? "warning" : "safe";
               const remaining = stillPlanned(e);
               return (
                 <div className="row everyday-row" key={e.id}>
@@ -839,6 +848,13 @@ export function AddExpense({
       return;
     }
     const category = String(f.get("category"));
+    const name = String(f.get("name") ?? "")
+      .trim()
+      .toLowerCase();
+    if ((type === "oneOff" || type === "impulse") && !name) {
+      setError("введите название");
+      return;
+    }
     let p = period;
     let everydayLimits = data.everydayLimits;
     if (type === "everyday") {
@@ -869,11 +885,15 @@ export function AddExpense({
       everydayLimits = syncAutomaticEverydaySettings(everydayLimits, p);
     } else {
       const date =
-        type === "oneOff" && status === "предстоит"
-          ? fromRuDate(oneOffDate)
-          : undefined;
+        (type === "mandatory" || type === "oneOff") && status === "предстоит"
+          ? oneOffDate
+            ? fromRuDate(oneOffDate)
+            : undefined
+          : type === "mandatory" || type === "oneOff" || type === "impulse"
+            ? todayIso()
+            : undefined;
       if (
-        type === "oneOff" &&
+        (type === "mandatory" || type === "oneOff") &&
         status === "предстоит" &&
         oneOffDate &&
         !date
@@ -881,21 +901,19 @@ export function AddExpense({
         setError("введите существующую дату");
         return;
       }
-      const e = {
+      const expense: Expense = {
         id: uid(),
         category,
         amount,
-        status:
-          type === "mandatory" || type === "oneOff"
-            ? status
-            : undefined,
+        ...(name ? { name } : {}),
+        status: type === "mandatory" || type === "oneOff" ? status : undefined,
         date,
       };
       p = {
         ...p,
         [type]: [
           ...(p[type as "mandatory" | "oneOff" | "impulse"] as Expense[]),
-          e,
+          expense,
         ],
       };
     }
@@ -961,6 +979,11 @@ export function AddExpense({
             onInput={formatAmountField}
           />
         </Field>
+        {(type === "oneOff" || type === "impulse") && (
+          <Field label="название">
+            <input name="name" required />
+          </Field>
+        )}
         {(type === "mandatory" || type === "oneOff") && (
           <Field label="статус">
             <select
@@ -977,15 +1000,16 @@ export function AddExpense({
             </select>
           </Field>
         )}
-        {type === "oneOff" && status === "предстоит" && (
-          <Field label="дата, необязательно">
-            <DateInput
-              name="date"
-              value={oneOffDate}
-              onChange={setOneOffDate}
-            />
-          </Field>
-        )}
+        {(type === "mandatory" || type === "oneOff") &&
+          status === "предстоит" && (
+            <Field label="дата, необязательно">
+              <DateInput
+                name="date"
+                value={oneOffDate}
+                onChange={setOneOffDate}
+              />
+            </Field>
+          )}
         {error && <p className="error">{error}</p>}
         <button className="primary">добавить расход</button>
       </form>
@@ -1027,10 +1051,7 @@ export function PeriodScreen({
     save(
       {
         ...data,
-        everydayLimits: syncAutomaticEverydaySettings(
-          data.everydayLimits,
-          p,
-        ),
+        everydayLimits: syncAutomaticEverydaySettings(data.everydayLimits, p),
         periods: data.periods.map((x) => (x.id === p.id ? p : x)),
       },
       "изменения сохранены",
@@ -1246,6 +1267,13 @@ export function Wishlist({
   const [editing, setEditing] = useState<WishlistItem>();
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<WishlistItem>();
+  const currentPeriod = data.periods.find((period) => period.current);
+  const canComplete =
+    currentPeriod && periodState(currentPeriod, todayIso()) !== "finished";
+  const orderedWishlist = [...data.wishlist].sort(
+    (left, right) =>
+      Number(Boolean(left.completedAt)) - Number(Boolean(right.completedAt)),
+  );
 
   const ItemForm = ({
     item,
@@ -1267,7 +1295,7 @@ export function Wishlist({
           const trimmedName = name.trim().toLowerCase();
           const parsedAmount = num(amount);
           if (!trimmedName) return setError("введите название");
-          if (!validateAmount(parsedAmount))
+          if (!validateAmount(parsedAmount) || parsedAmount === 0)
             return setError("проверьте сумму");
           const next = item
             ? data.wishlist.map((entry) =>
@@ -1289,6 +1317,7 @@ export function Wishlist({
         <Field label="название">
           <input
             autoFocus
+            required
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
@@ -1314,13 +1343,63 @@ export function Wishlist({
       <Top title="вишлист" back={back} />
       <div className="card">
         {data.wishlist.length ? (
-          data.wishlist.map((item) => (
-            <SettingsRow
+          orderedWishlist.map((item) => (
+            <div
+              className={`row settings-row wishlist-row ${
+                item.completedAt ? "completed" : ""
+              }`}
               key={item.id}
-              label={item.name}
-              trailing={
-                <>
-                  {money(item.amount)}
+            >
+              <label>
+                <input
+                  type="checkbox"
+                  checked={Boolean(item.completedAt)}
+                  disabled={Boolean(item.completedAt) || !canComplete}
+                  aria-label={`куплено ${item.name}`}
+                  onChange={() => {
+                    if (!canComplete || item.completedAt) return;
+                    const expenseId = uid();
+                    const completionDate = todayIso();
+                    save(
+                      {
+                        ...data,
+                        wishlist: data.wishlist.map((entry) =>
+                          entry.id === item.id
+                            ? {
+                                ...entry,
+                                completedAt: completionDate,
+                                expenseId,
+                              }
+                            : entry,
+                        ),
+                        periods: data.periods.map((period) =>
+                          period.id === currentPeriod.id
+                            ? {
+                                ...period,
+                                oneOff: [
+                                  ...period.oneOff,
+                                  {
+                                    id: expenseId,
+                                    category: "покупки",
+                                    name: item.name,
+                                    amount: item.amount,
+                                    status: "оплачено",
+                                    date: completionDate,
+                                  },
+                                ],
+                              }
+                            : period,
+                        ),
+                      },
+                      "покупка добавлена в расходы",
+                    );
+                  }}
+                />
+                <span>{item.name}</span>
+              </label>
+              <span className="expense-trailing">
+                {money(item.amount)}
+                {!item.completedAt && (
                   <button
                     className="icon"
                     aria-label={`изменить позицию ${item.name}`}
@@ -1328,16 +1407,16 @@ export function Wishlist({
                   >
                     ✎
                   </button>
-                  <button
-                    className="icon"
-                    aria-label={`удалить позицию ${item.name}`}
-                    onClick={() => setDeleting(item)}
-                  >
-                    ×
-                  </button>
-                </>
-              }
-            />
+                )}
+                <button
+                  className="icon"
+                  aria-label={`удалить позицию ${item.name}`}
+                  onClick={() => setDeleting(item)}
+                >
+                  ×
+                </button>
+              </span>
+            </div>
           ))
         ) : (
           <p className="muted">вишлист пока пуст</p>

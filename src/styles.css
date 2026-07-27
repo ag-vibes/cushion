@@ -123,6 +123,12 @@ p {
   margin: 12px 0 4px;
   letter-spacing: -2px;
 }
+.hero h1.no-free-money {
+  color: var(--color-accent);
+}
+.hero .money-label.no-free-money {
+  color: var(--color-accent);
+}
 .card {
   min-width: 0;
   background: #fff;
@@ -157,6 +163,25 @@ p {
   color: var(--color-ink-subtle);
   font-size: var(--font-meta);
   margin-top: 3px;
+}
+.wishlist-row > label {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.wishlist-row input[type="checkbox"] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-primary-text);
+}
+.wishlist-row.completed {
+  color: var(--color-ink-subtle);
+}
+.wishlist-row.completed > label span {
+  text-decoration: line-through;
 }
 .everyday-details {
   display: grid !important;

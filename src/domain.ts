@@ -41,6 +41,7 @@ export type Expense = {
   id: string;
   category: string;
   amount: number;
+  name?: string;
   status?: Status;
   date?: string;
 };
@@ -85,6 +86,8 @@ export type WishlistItem = {
   id: string;
   name: string;
   amount: number;
+  completedAt?: string;
+  expenseId?: string;
 };
 export type AppData = {
   version: 1;
@@ -166,9 +169,7 @@ export const normalizeData = (raw: unknown): AppData => {
     everyday: period.everyday
       .map((item) => ({
         ...item,
-        expenses: item.expenses.filter(
-          (expenseItem) => expenseItem.amount > 0,
-        ),
+        expenses: item.expenses.filter((expenseItem) => expenseItem.amount > 0),
       }))
       .filter((item) => item.limit > 0 || item.expenses.length > 0)
       .map((item) => {
@@ -196,33 +197,32 @@ export const normalizeData = (raw: unknown): AppData => {
     periods[periods.length - 1]?.everyday ??
     [];
   const everydayLimits = Array.isArray(source.everydayLimits)
-    ? source.everydayLimits
-        .flatMap((item) => {
-          const category = translateCategory(item.category);
-          const currentItem = periods
-            .find((period) => period.current)
-            ?.everyday.find((limit) => limit.category === category);
-          if (item.limit === 0) {
-            if (!currentItem || spent(currentItem) === 0) return [];
-            return [
-              {
-                ...item,
-                category,
-                limit: currentItem.limit,
-                automatic: true,
-              },
-            ];
-          }
+    ? source.everydayLimits.flatMap((item) => {
+        const category = translateCategory(item.category);
+        const currentItem = periods
+          .find((period) => period.current)
+          ?.everyday.find((limit) => limit.category === category);
+        if (item.limit === 0) {
+          if (!currentItem || spent(currentItem) === 0) return [];
           return [
             {
               ...item,
               category,
-              automatic:
-                item.automatic === true ||
-                likelyAutomaticCategories.has(category),
+              limit: currentItem.limit,
+              automatic: true,
             },
           ];
-        })
+        }
+        return [
+          {
+            ...item,
+            category,
+            automatic:
+              item.automatic === true ||
+              likelyAutomaticCategories.has(category),
+          },
+        ];
+      })
     : legacyLimitSource
         .filter((item) => item.limit > 0)
         .map(({ id, category, limit }) => ({ id, category, limit }));
@@ -297,13 +297,9 @@ export const addEverydayExpense = (
       : item,
   );
 };
-export const recalculateAutomaticEverydayLimits = (
-  items: EverydayLimit[],
-) =>
+export const recalculateAutomaticEverydayLimits = (items: EverydayLimit[]) =>
   items
-    .map((item) =>
-      item.automatic ? { ...item, limit: spent(item) } : item,
-    )
+    .map((item) => (item.automatic ? { ...item, limit: spent(item) } : item))
     .filter((item) => item.limit > 0 || spent(item) > 0);
 export const syncAutomaticEverydaySettings = (
   settings: EverydayLimitSetting[],
@@ -374,25 +370,27 @@ export const periodState = (period: Period, today: string): PeriodState => {
   if (today === period.nextSalaryDate) return "salary-day";
   return "finished";
 };
-export const settleScheduledOneOffExpenses = (
+export const settleScheduledExpenses = (
   data: AppData,
   today: string,
 ): AppData => {
   let changed = false;
   const periods = data.periods.map((period) => {
     if (!period.current) return period;
-    const oneOff = period.oneOff.map((expense) => {
+    const settle = (expense: Expense) => {
       if (
         expense.status === "предстоит" &&
         expense.date &&
         expense.date <= today
       ) {
         changed = true;
-        return { ...expense, status: "оплачено" as const, date: undefined };
+        return { ...expense, status: "оплачено" as const };
       }
       return expense;
-    });
-    return changed ? { ...period, oneOff } : period;
+    };
+    const mandatory = period.mandatory.map(settle);
+    const oneOff = period.oneOff.map(settle);
+    return changed ? { ...period, mandatory, oneOff } : period;
   });
   return changed ? { ...data, periods } : data;
 };

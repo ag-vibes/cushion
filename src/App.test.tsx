@@ -120,6 +120,47 @@ describe("wishlist", () => {
       amount: 15000,
     });
   });
+
+  it("completes an item once and creates a paid one-off purchase", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T12:00:00"));
+    const save = vi.fn();
+    const data = {
+      ...makeData(),
+      wishlist: [{ id: "wish", name: "новая сумка", amount: 15000 }],
+    };
+    render(<Wishlist data={data} save={save} back={vi.fn()} />);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "куплено новая сумка" }),
+    );
+    const saved = save.mock.calls[0][0] as AppData;
+    expect(saved.wishlist[0]).toMatchObject({
+      id: "wish",
+      completedAt: "2026-07-27",
+    });
+    expect(
+      saved.periods.find((period) => period.current)?.oneOff[0],
+    ).toMatchObject({
+      category: "покупки",
+      name: "новая сумка",
+      amount: 15000,
+      status: "оплачено",
+      date: "2026-07-27",
+    });
+  });
+
+  it("disables completion without an active period", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-02T12:00:00"));
+    const data = {
+      ...makeData(),
+      wishlist: [{ id: "wish", name: "новая сумка", amount: 15000 }],
+    };
+    render(<Wishlist data={data} save={vi.fn()} back={vi.fn()} />);
+    expect(
+      screen.getByRole("checkbox", { name: "куплено новая сумка" }),
+    ).toHaveProperty("disabled", true);
+  });
 });
 
 describe("period creation", () => {
@@ -181,9 +222,7 @@ describe("period creation", () => {
       limit: 500,
       automatic: true,
     };
-    render(
-      <CreatePeriod data={data} onSave={onSave} onCancel={vi.fn()} />,
-    );
+    render(<CreatePeriod data={data} onSave={onSave} onCancel={vi.fn()} />);
     fireEvent.change(screen.getByRole("textbox", { name: "дата начала" }), {
       target: { value: "01082026" },
     });
@@ -206,6 +245,73 @@ describe("period creation", () => {
 });
 
 describe("period completion UI", () => {
+  it("shows the no-money state at zero and below", () => {
+    const zero = {
+      ...makePeriod(true),
+      income: 0,
+      previousBalance: 0,
+      everyday: [],
+    };
+    const { container, rerender } = render(<Home period={zero} go={vi.fn()} />);
+    expect(screen.getByText("свободных денег нет").className).toContain(
+      "no-free-money",
+    );
+    expect(screen.getByRole("heading", { name: "0 ₽" }).className).toContain(
+      "no-free-money",
+    );
+    expect(
+      container.querySelector(".hero-mascot")?.getAttribute("src"),
+    ).toContain("mascot-no-money.svg");
+    rerender(
+      <Home
+        period={{
+          ...zero,
+          impulse: [{ id: "expense", category: "покупки", amount: 500 }],
+        }}
+        go={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "-500 ₽" }).className).toContain(
+      "no-free-money",
+    );
+  });
+
+  it("uses green below 70, orange from 70 through 90, and red above 90", () => {
+    const current = {
+      ...makePeriod(true),
+      everyday: [
+        {
+          id: "safe",
+          category: "еда",
+          limit: 1000,
+          expenses: [{ id: "safe-expense", amount: 699 }],
+        },
+        {
+          id: "warning",
+          category: "транспорт",
+          limit: 1000,
+          expenses: [{ id: "warning-expense", amount: 700 }],
+        },
+        {
+          id: "danger",
+          category: "покупки",
+          limit: 1000,
+          expenses: [{ id: "danger-expense", amount: 901 }],
+        },
+      ],
+    };
+    const { container } = render(<Home period={current} go={vi.fn()} />);
+    expect(
+      container.querySelectorAll(".category-progress i.safe"),
+    ).toHaveLength(1);
+    expect(
+      container.querySelectorAll(".category-progress i.warning"),
+    ).toHaveLength(1);
+    expect(
+      container.querySelectorAll(".category-progress i.danger"),
+    ).toHaveLength(1);
+  });
+
   it("uses the shared category order on the home screen", () => {
     const current = {
       ...makePeriod(true),
@@ -457,12 +563,7 @@ describe("expense creation", () => {
     const data = makeData();
     const current = data.periods.find((item) => item.current)!;
     render(
-      <AddExpense
-        data={data}
-        period={current}
-        save={save}
-        done={vi.fn()}
-      />,
+      <AddExpense data={data} period={current} save={save} done={vi.fn()} />,
     );
     expect(screen.queryByRole("textbox", { name: "дата" })).toBeNull();
     fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
@@ -474,9 +575,7 @@ describe("expense creation", () => {
     fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
     const saved = save.mock.calls[0][0] as AppData;
     expect(
-      saved.periods
-        .find((item) => item.current)
-        ?.everyday[0].expenses.at(-1),
+      saved.periods.find((item) => item.current)?.everyday[0].expenses.at(-1),
     ).toMatchObject({
       amount: 1200,
       createdAt: new Date("2026-07-23T12:34:00").toISOString(),
@@ -509,6 +608,126 @@ describe("expense creation", () => {
     expect(
       screen.queryByRole("textbox", { name: "дата, необязательно" }),
     ).toBeNull();
+  });
+
+  it("requires a one-off name and dates a paid expense today", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T12:00:00"));
+    const save = vi.fn();
+    const data = {
+      ...makeData(),
+      categories: ["услуги"],
+      categoryTypes: { услуги: ["oneOff" as const] },
+    };
+    render(
+      <AddExpense
+        data={data}
+        period={data.periods.find((item) => item.current)!}
+        save={save}
+        done={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
+      target: { value: "oneOff" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
+      target: { value: "услуги" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
+      target: { value: "3000" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "название" }), {
+      target: { value: "Клининг" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "статус" }), {
+      target: { value: "оплачено" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
+    expect(
+      (save.mock.calls[0][0] as AppData).periods.find((item) => item.current)
+        ?.oneOff[0],
+    ).toMatchObject({
+      name: "клининг",
+      status: "оплачено",
+      date: "2026-07-27",
+    });
+  });
+
+  it("records a required impulse name and today's date", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T12:00:00"));
+    const save = vi.fn();
+    const data = {
+      ...makeData(),
+      categories: ["покупки"],
+      categoryTypes: { покупки: ["impulse" as const] },
+    };
+    render(
+      <AddExpense
+        data={data}
+        period={data.periods.find((item) => item.current)!}
+        save={save}
+        done={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
+      target: { value: "impulse" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
+      target: { value: "покупки" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
+      target: { value: "1000" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "название" }), {
+      target: { value: "Свеча" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
+    expect(
+      (save.mock.calls[0][0] as AppData).periods.find((item) => item.current)
+        ?.impulse[0],
+    ).toMatchObject({
+      name: "свеча",
+      date: "2026-07-27",
+    });
+  });
+
+  it("accepts an optional planned date for a mandatory expense", () => {
+    const save = vi.fn();
+    const data = {
+      ...makeData(),
+      categories: ["аренда"],
+      categoryTypes: { аренда: ["mandatory" as const] },
+    };
+    render(
+      <AddExpense
+        data={data}
+        period={data.periods.find((item) => item.current)!}
+        save={save}
+        done={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "тип расхода" }), {
+      target: { value: "mandatory" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "категория" }), {
+      target: { value: "аренда" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "сумма" }), {
+      target: { value: "30000" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "дата, необязательно" }),
+      { target: { value: "29072026" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "добавить расход" }));
+    expect(
+      (save.mock.calls[0][0] as AppData).periods.find((item) => item.current)
+        ?.mandatory[0],
+    ).toMatchObject({
+      status: "предстоит",
+      date: "2026-07-29",
+    });
   });
 });
 
@@ -651,9 +870,9 @@ describe("category settings UI", () => {
     fireEvent.click(screen.getByRole("button", { name: "сохранить" }));
     const saved = save.mock.calls[0][0] as AppData;
     expect(saved.everydayLimits).toEqual([]);
-    expect(
-      saved.periods.find((period) => period.current)?.everyday,
-    ).toEqual([]);
+    expect(saved.periods.find((period) => period.current)?.everyday).toEqual(
+      [],
+    );
   });
 
   it("opens a compact add-category form with a short submit label", () => {

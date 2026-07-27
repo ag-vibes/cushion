@@ -12,7 +12,7 @@ import {
   suggestedPreviousBalance,
   periodState,
   recalculateAutomaticEverydayLimits,
-  settleScheduledOneOffExpenses,
+  settleScheduledExpenses,
   syncAutomaticEverydaySettings,
   validBackup,
   type Period,
@@ -76,8 +76,17 @@ describe("financial calculations", () => {
     };
     expect(freeMoney(a)).toBe(freeMoney(b));
   });
-  it("settles a dated one-off expense without changing free money", () => {
+  it("settles dated one-off and mandatory expenses without changing free money", () => {
     const current = period({
+      mandatory: [
+        {
+          id: "mandatory",
+          category: "аренда",
+          amount: 30000,
+          status: "предстоит",
+          date: "2026-07-23",
+        },
+      ],
       oneOff: [
         {
           id: "o",
@@ -102,9 +111,18 @@ describe("financial calculations", () => {
       ],
     });
     const data = { ...emptyData(), periods: [current] };
-    const settled = settleScheduledOneOffExpenses(data, "2026-07-23");
+    const settled = settleScheduledExpenses(data, "2026-07-23");
+    expect(settled.periods[0].mandatory[0]).toMatchObject({
+      id: "mandatory",
+      status: "оплачено",
+      date: "2026-07-23",
+    });
     expect(settled.periods[0].oneOff).toEqual([
-      expect.objectContaining({ id: "o", status: "оплачено", date: undefined }),
+      expect.objectContaining({
+        id: "o",
+        status: "оплачено",
+        date: "2026-07-23",
+      }),
       expect.objectContaining({ id: "later", status: "предстоит" }),
       expect.objectContaining({ id: "undated", status: "предстоит" }),
     ]);
