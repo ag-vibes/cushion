@@ -126,10 +126,10 @@ A category does not determine financial behaviour. Expense type determines finan
 
 The user may add, rename, reorder and delete categories. A category may belong to multiple expense types, and those types can be edited.
 
-Two independent display orders are maintained in `ещё` → `настройка категорий`:
-
-- the complete category list can be reordered for organisation within the `категории` section only;
-- everyday categories can be reordered in `повседневные лимиты`, and this order is used for everyday categories on `главная`, `период` and in period history.
+One category order is maintained in `ещё` → `настройка категорий` → `категории`.
+The complete category list can be reordered there. Everyday categories inherit
+their relative positions from this list, and that order is used on `главная`,
+`период`, in period history and in `повседневные лимиты`.
 
 The complete category-list order does not sort planned, unplanned or impulse expense entries. Planned expenses use date and status order; unplanned and impulse entries use chronological entry order.
 
@@ -467,7 +467,11 @@ The primary action is placed immediately below the period hero and scrolls with 
 
 The free money value must be the strongest visual element.
 
-Planned expenses show future entries first from the nearest date to the latest. Paid entries follow in chronological order, so a newly paid entry moves to the bottom. Unplanned and impulse entries remain in chronological entry order from oldest to newest. Everyday categories follow the order configured in `повседневные лимиты`. Only planned expenses have a status. The `предстоит` status is shown on `главная` and `период`; selecting it changes the expense to `оплачено` and removes the status label without changing free money.
+The actual-expense summary card at the bottom of `главная` has the heading
+`статистика` and contains total actual expenses and average actual expense per
+elapsed day.
+
+Planned expenses show future entries first from the nearest date to the latest. Paid entries follow in chronological order, so a newly paid entry moves to the bottom. Unplanned and impulse entries remain in chronological entry order from oldest to newest. Everyday categories follow their relative order in the common `категории` list. Only planned expenses have a status. The `предстоит` status is shown on `главная` and `период`; selecting it changes the expense to `оплачено` and removes the status label without changing free money.
 
 The total and daily average include only actual expenses: paid planned expenses, actual everyday spending, unplanned expenses and impulse purchases. Future planned reservations and unused everyday limits are excluded. For the current period, the daily average divides actual expenses by elapsed calendar days including today and the start date.
 

@@ -93,7 +93,6 @@ export type AppData = {
   version: 1;
   lastBackupDate?: string;
   categories: string[];
-  everydayCategoryOrder?: string[];
   categoryTypes: Record<string, ExpenseKind[]>;
   everydayLimits: EverydayLimitSetting[];
   drafts: Draft[];
@@ -103,9 +102,6 @@ export type AppData = {
 export const emptyData = (): AppData => ({
   version: 1,
   categories: [...initialCategories],
-  everydayCategoryOrder: initialCategories.filter((category) =>
-    defaultCategoryTypes[category]?.includes("everyday"),
-  ),
   categoryTypes: structuredClone(defaultCategoryTypes),
   everydayLimits: [],
   drafts: [],
@@ -138,22 +134,6 @@ export const normalizeData = (raw: unknown): AppData => {
   categories.forEach((category) => {
     categoryTypes[category] ??= ["mandatory", "everyday", "oneOff", "impulse"];
   });
-  const everydayCategories = categories.filter((category) =>
-    categoryTypes[category]?.includes("everyday"),
-  );
-  const savedEverydayOrder = Array.isArray(source.everydayCategoryOrder)
-    ? source.everydayCategoryOrder
-        .map(translateCategory)
-        .filter((category) => everydayCategories.includes(category))
-    : [];
-  const everydayCategoryOrder = [
-    ...new Set([
-      ...savedEverydayOrder,
-      ...everydayCategories.filter(
-        (category) => !savedEverydayOrder.includes(category),
-      ),
-    ]),
-  ];
   const currentSourcePeriod = (source.periods ?? []).find(
     (period) => period.current,
   );
@@ -278,7 +258,6 @@ export const normalizeData = (raw: unknown): AppData => {
       ? { lastBackupDate: source.lastBackupDate }
       : {}),
     categories,
-    everydayCategoryOrder,
     categoryTypes,
     everydayLimits,
     drafts: (source.drafts ?? []).map((item) => ({

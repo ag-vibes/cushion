@@ -220,7 +220,7 @@ export function App() {
     ) : page === "history" ? (
       <History
         periods={data.periods.filter((p) => !p.current)}
-        everydayOrder={data.everydayCategoryOrder ?? data.categories}
+        everydayOrder={data.categories}
         back={() => setPage("more")}
       />
     ) : page === "backup" ? (
@@ -237,7 +237,7 @@ export function App() {
       <Home
         period={current}
         go={setPage}
-        categoryOrder={data.everydayCategoryOrder ?? data.categories}
+        categoryOrder={data.categories}
         onChange={(period) =>
           update(
             {
@@ -366,7 +366,11 @@ export function Home({
         statusEditable={!finished}
         onChange={onChange}
       />
-      <PeriodTotals period={period} today={todayIso()} />
+      <PeriodTotals
+        period={period}
+        today={todayIso()}
+        heading="статистика"
+      />
     </>
   );
 }
@@ -732,9 +736,18 @@ function Group({
   );
 }
 
-function PeriodTotals({ period, today }: { period: Period; today: string }) {
+function PeriodTotals({
+  period,
+  today,
+  heading,
+}: {
+  period: Period;
+  today: string;
+  heading?: string;
+}) {
   return (
     <section className="card period-totals" aria-label="итоги периода">
+      {heading && <h2>{heading}</h2>}
       <div className="row">
         <span>расходы за период</span>
         <span>{money(totalActualExpenses(period))}</span>
@@ -1221,7 +1234,7 @@ export function PeriodScreen({
           p={period}
           editable={!finished}
           onChange={finished ? undefined : change}
-          categoryOrder={data.everydayCategoryOrder ?? data.categories}
+          categoryOrder={data.categories}
         />
       </section>
       <section className="period-settings">
@@ -1574,14 +1587,6 @@ export function Categories({
   const [order, setOrder] = useState(data.categories);
   const dragged = useRef<string | undefined>(undefined);
   const dragOrder = useRef(data.categories);
-  const initialEverydayOrder = (
-    data.everydayCategoryOrder ?? data.categories
-  ).filter((category) =>
-    data.categoryTypes[category]?.includes("everyday"),
-  );
-  const [everydayOrder, setEverydayOrder] = useState(initialEverydayOrder);
-  const draggedEveryday = useRef<string | undefined>(undefined);
-  const everydayDragOrder = useRef(initialEverydayOrder);
   const [editing, setEditing] = useState<string>();
   const [deleting, setDeleting] = useState<string>();
   const [editName, setEditName] = useState("");
@@ -1595,13 +1600,6 @@ export function Categories({
     setOrder(data.categories);
     dragOrder.current = data.categories;
   }, [data.categories]);
-  useEffect(() => {
-    const next = (data.everydayCategoryOrder ?? data.categories).filter(
-      (category) => data.categoryTypes[category]?.includes("everyday"),
-    );
-    setEverydayOrder(next);
-    everydayDragOrder.current = next;
-  }, [data.categories, data.categoryTypes, data.everydayCategoryOrder]);
   const typeLabels: Record<ExpenseKind, string> = {
     mandatory: "запланированные",
     everyday: "повседневные",
@@ -1625,31 +1623,12 @@ export function Categories({
       return setEditError("такая категория уже есть");
     const renameExpense = (expense: Expense) =>
       expense.category === editing ? { ...expense, category: name } : expense;
-    const wasEveryday = data.categoryTypes[editing]?.includes("everyday");
-    const nextEverydayOrder = (
-      data.everydayCategoryOrder ?? categoriesFor(data, "everyday")
-    )
-      .filter((category) => category !== editing)
-      .concat(
-        editTypes.includes("everyday")
-          ? wasEveryday
-            ? []
-            : [name]
-          : [],
-      );
-    if (wasEveryday && editTypes.includes("everyday")) {
-      const position = (
-        data.everydayCategoryOrder ?? categoriesFor(data, "everyday")
-      ).indexOf(editing);
-      nextEverydayOrder.splice(position < 0 ? nextEverydayOrder.length : position, 0, name);
-    }
     save(
       {
         ...data,
         categories: data.categories.map((category) =>
           category === editing ? name : category,
         ),
-        everydayCategoryOrder: nextEverydayOrder,
         categoryTypes: Object.fromEntries(
           Object.entries(data.categoryTypes)
             .filter(([category]) => category !== editing)
@@ -1716,9 +1695,6 @@ export function Categories({
       {
         ...data,
         categories: [...data.categories, name],
-        everydayCategoryOrder: types.includes("everyday")
-          ? [...(data.everydayCategoryOrder ?? categoriesFor(data, "everyday")), name]
-          : data.everydayCategoryOrder ?? categoriesFor(data, "everyday"),
         categoryTypes: { ...data.categoryTypes, [name]: types },
       },
       "категория добавлена",
@@ -1739,20 +1715,8 @@ export function Categories({
     dragOrder.current = next;
     setOrder(next);
   };
-  const moveEverydayDragged = (target: string) => {
-    const source = draggedEveryday.current;
-    if (!source || source === target) return;
-    const next = [...everydayDragOrder.current];
-    const from = next.indexOf(source);
-    const to = next.indexOf(target);
-    if (from < 0 || to < 0) return;
-    next.splice(from, 1);
-    next.splice(to, 0, source);
-    everydayDragOrder.current = next;
-    setEverydayOrder(next);
-  };
   const mandatoryCategories = categoriesFor(data, "mandatory");
-  const everydayCategories = everydayOrder;
+  const everydayCategories = categoriesFor(data, "everyday");
   return (
     <section>
       <Top title="настройка категорий" back={back} />
@@ -1787,41 +1751,7 @@ export function Categories({
             (item) => item.category === category,
           );
           return (
-            <div
-              key={category}
-              className="row category-row"
-              data-everyday-category={category}
-            >
-              <button
-                className="drag-handle"
-                aria-label={`переместить повседневную категорию ${category}`}
-                onPointerDown={(event) => {
-                  draggedEveryday.current = category;
-                  everydayDragOrder.current = everydayOrder;
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                }}
-                onPointerMove={(event) => {
-                  if (!draggedEveryday.current) return;
-                  const target = document
-                    .elementFromPoint(event.clientX, event.clientY)
-                    ?.closest<HTMLElement>("[data-everyday-category]")
-                    ?.dataset.everydayCategory;
-                  if (target) moveEverydayDragged(target);
-                }}
-                onPointerUp={() => {
-                  if (draggedEveryday.current)
-                    save(
-                      {
-                        ...data,
-                        everydayCategoryOrder: everydayDragOrder.current,
-                      },
-                      "порядок повседневных категорий сохранён",
-                    );
-                  draggedEveryday.current = undefined;
-                }}
-              >
-                ≡
-              </button>
+            <div key={category} className="row category-row">
               <span>{category}</span>
               <span className="expense-trailing">
                   {money(setting?.limit ?? 0)}{" "}
@@ -1994,9 +1924,6 @@ export function Categories({
                     categories: data.categories.filter(
                       (item) => item !== deleting,
                     ),
-                    everydayCategoryOrder: (
-                      data.everydayCategoryOrder ?? categoriesFor(data, "everyday")
-                    ).filter((item) => item !== deleting),
                     categoryTypes: Object.fromEntries(
                       Object.entries(data.categoryTypes).filter(
                         ([name]) => name !== deleting,

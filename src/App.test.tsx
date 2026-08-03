@@ -257,6 +257,7 @@ describe("period completion UI", () => {
       everyday: [],
     };
     const { container, rerender } = render(<Home period={zero} go={vi.fn()} />);
+    expect(screen.getByRole("heading", { name: "статистика" })).toBeTruthy();
     expect(screen.getByText("свободных денег нет").className).toContain(
       "no-free-money",
     );
@@ -815,7 +816,7 @@ describe("period completion UI", () => {
       <PeriodScreen
         data={{
           ...makeData(),
-          everydayCategoryOrder: ["еда", "транспорт"],
+          categories: ["еда", "транспорт"],
           periods: [current, makePeriod(false)],
         }}
         period={current}
@@ -1198,6 +1199,11 @@ describe("category settings UI", () => {
       ],
     };
     render(<Categories data={data} save={save} back={vi.fn()} />);
+    expect(
+      screen.queryByRole("button", {
+        name: /переместить повседневную категорию/,
+      }),
+    ).toBeNull();
     fireEvent.click(
       screen.getByRole("button", {
         name: "изменить лимит для категории еда",

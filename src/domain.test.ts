@@ -342,27 +342,6 @@ describe("financial calculations", () => {
     });
     expect(data.categories).toEqual(["еда"]);
   });
-  it("initializes and repairs the independent everyday category order", () => {
-    const data = normalizeData({
-      version: 1,
-      categories: ["аренда", "еда", "транспорт", "покупки"],
-      categoryTypes: {
-        аренда: ["mandatory"],
-        еда: ["everyday"],
-        транспорт: ["everyday"],
-        покупки: ["everyday", "impulse"],
-      },
-      everydayCategoryOrder: ["транспорт", "аренда", "несуществующая"],
-      drafts: [],
-      periods: [],
-    });
-
-    expect(data.everydayCategoryOrder).toEqual([
-      "транспорт",
-      "еда",
-      "покупки",
-    ]);
-  });
   it("recognises a legacy limit created from matching current spending", () => {
     const migrated = normalizeData({
       version: 1,
