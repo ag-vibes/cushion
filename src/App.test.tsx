@@ -1,11 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   Categories,
   AddExpense,
   Backup,
   CreatePeriod,
   Home,
+  History,
   PeriodScreen,
   Wishlist,
   formatDateInput,
@@ -244,6 +245,10 @@ describe("period creation", () => {
 });
 
 describe("period completion UI", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T12:00:00"));
+  });
   it("shows the no-money state at zero and below", () => {
     const zero = {
       ...makePeriod(true),
@@ -407,7 +412,7 @@ describe("period completion UI", () => {
     expect(screen.queryByText("оплачено")).toBeNull();
   });
 
-  it("shows planned dates on home and all non-everyday dates on the period screen", () => {
+  it("shows dates only for future planned expenses", () => {
     const current = {
       ...makePeriod(true),
       mandatory: [
@@ -447,7 +452,7 @@ describe("period completion UI", () => {
       <PeriodScreen data={data} period={current} save={vi.fn()} go={vi.fn()} />,
     );
     expect(screen.getByText("30 июля")).toBeTruthy();
-    expect(screen.getAllByText("27 июля")).toHaveLength(2);
+    expect(screen.queryByText("27 июля")).toBeNull();
   });
 
   it("edits actual everyday expenses instead of limits on the period screen", () => {
@@ -483,6 +488,7 @@ describe("period completion UI", () => {
         name: "скорректировать внесённые расходы",
       }),
     ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "еда2500 ₽" }));
     expect(
       screen.getByRole("button", { name: "изменить расход еда" }),
     ).toBeTruthy();
@@ -699,9 +705,196 @@ describe("period completion UI", () => {
     expect(input.value).toBe("");
     expect(input.placeholder).toBe("0");
   });
+
+  it("sorts planned expenses by upcoming date and moves paid ones below", () => {
+    const current = {
+      ...makePeriod(true),
+      mandatory: [
+        {
+          id: "paid-late",
+          category: "подписки",
+          amount: 400,
+          status: "оплачено" as const,
+          date: "2026-07-22",
+        },
+        {
+          id: "future-late",
+          category: "аренда",
+          amount: 30000,
+          status: "предстоит" as const,
+          date: "2026-07-30",
+        },
+        {
+          id: "paid-early",
+          category: "долг",
+          amount: 1000,
+          status: "оплачено" as const,
+          date: "2026-07-20",
+        },
+        {
+          id: "future-near",
+          category: "красота",
+          amount: 3000,
+          status: "предстоит" as const,
+          date: "2026-07-24",
+        },
+      ],
+    };
+    render(<Home period={current} go={vi.fn()} />);
+    const labels = ["красота", "аренда", "долг", "подписки"].map((label) =>
+      screen.getByText(label),
+    );
+    labels.slice(0, -1).forEach((item, index) =>
+      expect(
+        item.compareDocumentPosition(labels[index + 1]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy(),
+    );
+  });
+
+  it("keeps unplanned and impulse expenses from oldest to newest", () => {
+    const current = {
+      ...makePeriod(true),
+      oneOff: [
+        { id: "old", category: "услуги", name: "старый", amount: 100 },
+        { id: "new", category: "покупки", name: "новый", amount: 200 },
+      ],
+      impulse: [
+        { id: "old-i", category: "еда", name: "первый", amount: 50 },
+        { id: "new-i", category: "покупки", name: "второй", amount: 70 },
+      ],
+    };
+    render(
+      <Home
+        period={current}
+        go={vi.fn()}
+        categoryOrder={["покупки", "услуги", "еда"]}
+      />,
+    );
+    expect(
+      screen.getByText("старый").compareDocumentPosition(screen.getByText("новый")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByText("первый").compareDocumentPosition(screen.getByText("второй")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("groups everyday expenses by category and expands their dated operations", () => {
+    const current = {
+      ...makePeriod(true),
+      everyday: [
+        {
+          id: "transport",
+          category: "транспорт",
+          limit: 1000,
+          expenses: [
+            {
+              id: "ride",
+              amount: 300,
+              createdAt: "2026-07-21T10:15:00.000Z",
+            },
+          ],
+        },
+        {
+          id: "food",
+          category: "еда",
+          limit: 1000,
+          expenses: [
+            {
+              id: "meal",
+              amount: 500,
+              createdAt: "2026-07-22T10:15:00.000Z",
+            },
+          ],
+        },
+      ],
+    };
+    render(
+      <PeriodScreen
+        data={{
+          ...makeData(),
+          everydayCategoryOrder: ["еда", "транспорт"],
+          periods: [current, makePeriod(false)],
+        }}
+        period={current}
+        save={vi.fn()}
+        go={vi.fn()}
+      />,
+    );
+    const food = screen.getByRole("button", { name: "еда500 ₽" });
+    const transport = screen.getByRole("button", { name: "транспорт300 ₽" });
+    expect(
+      food.compareDocumentPosition(transport) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.queryByText("22 июля 13:15")).toBeNull();
+    fireEvent.click(food);
+    expect(screen.getByText(/22 июля/)).toBeTruthy();
+  });
+});
+
+describe("period history", () => {
+  it("shows type summaries without individual everyday operations or dates", () => {
+    const historical = {
+      ...makePeriod(false),
+      mandatory: [
+        {
+          id: "rent",
+          category: "аренда",
+          name: "июль",
+          amount: 1000,
+          status: "оплачено" as const,
+          date: "2026-07-01",
+        },
+      ],
+      everyday: [
+        {
+          id: "food",
+          category: "еда",
+          limit: 500,
+          expenses: [
+            {
+              id: "meal",
+              amount: 300,
+              createdAt: "2026-07-02T10:00:00.000Z",
+            },
+          ],
+        },
+      ],
+      oneOff: [
+        { id: "service", category: "услуги", name: "ремонт", amount: 200 },
+      ],
+      impulse: [
+        { id: "candle", category: "покупки", name: "свеча", amount: 100 },
+      ],
+    };
+    render(
+      <History
+        periods={[historical]}
+        everydayOrder={["еда"]}
+        back={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /1 июля — 1 августа/ }));
+    expect(screen.getByText(/остаток:/)).toBeTruthy();
+    expect(screen.queryByText(/итог:/)).toBeNull();
+    expect(screen.getByText("июль")).toBeTruthy();
+    expect(screen.getByText("ремонт")).toBeTruthy();
+    expect(screen.getByText("свеча")).toBeTruthy();
+    expect(screen.queryByText(/2 июля/)).toBeNull();
+    expect(screen.getByText("расходы за период")).toBeTruthy();
+    expect(screen.getByText("средний расход в день")).toBeTruthy();
+    expect(screen.getByText("1600 ₽")).toBeTruthy();
+    expect(screen.getByText("50 ₽")).toBeTruthy();
+  });
 });
 
 describe("expense creation", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T12:00:00"));
+  });
   it("does not save a zero-value expense", () => {
     const save = vi.fn();
     const data = makeData();

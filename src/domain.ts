@@ -93,6 +93,7 @@ export type AppData = {
   version: 1;
   lastBackupDate?: string;
   categories: string[];
+  everydayCategoryOrder?: string[];
   categoryTypes: Record<string, ExpenseKind[]>;
   everydayLimits: EverydayLimitSetting[];
   drafts: Draft[];
@@ -102,6 +103,9 @@ export type AppData = {
 export const emptyData = (): AppData => ({
   version: 1,
   categories: [...initialCategories],
+  everydayCategoryOrder: initialCategories.filter((category) =>
+    defaultCategoryTypes[category]?.includes("everyday"),
+  ),
   categoryTypes: structuredClone(defaultCategoryTypes),
   everydayLimits: [],
   drafts: [],
@@ -134,6 +138,22 @@ export const normalizeData = (raw: unknown): AppData => {
   categories.forEach((category) => {
     categoryTypes[category] ??= ["mandatory", "everyday", "oneOff", "impulse"];
   });
+  const everydayCategories = categories.filter((category) =>
+    categoryTypes[category]?.includes("everyday"),
+  );
+  const savedEverydayOrder = Array.isArray(source.everydayCategoryOrder)
+    ? source.everydayCategoryOrder
+        .map(translateCategory)
+        .filter((category) => everydayCategories.includes(category))
+    : [];
+  const everydayCategoryOrder = [
+    ...new Set([
+      ...savedEverydayOrder,
+      ...everydayCategories.filter(
+        (category) => !savedEverydayOrder.includes(category),
+      ),
+    ]),
+  ];
   const currentSourcePeriod = (source.periods ?? []).find(
     (period) => period.current,
   );
@@ -258,6 +278,7 @@ export const normalizeData = (raw: unknown): AppData => {
       ? { lastBackupDate: source.lastBackupDate }
       : {}),
     categories,
+    everydayCategoryOrder,
     categoryTypes,
     everydayLimits,
     drafts: (source.drafts ?? []).map((item) => ({
@@ -371,6 +392,36 @@ export const freeMoney = (p: Period) =>
   p.everyday.reduce((s, e) => s + Math.max(e.limit, spent(e)), 0) -
   p.oneOff.reduce((s, e) => s + e.amount, 0) -
   p.impulse.reduce((s, e) => s + e.amount, 0);
+export const actualExpenseTotals = (p: Period) => ({
+  mandatory: p.mandatory
+    .filter((expense) => expense.status !== "предстоит")
+    .reduce((sum, expense) => sum + expense.amount, 0),
+  everyday: p.everyday.reduce((sum, item) => sum + spent(item), 0),
+  oneOff: p.oneOff.reduce((sum, expense) => sum + expense.amount, 0),
+  impulse: p.impulse.reduce((sum, expense) => sum + expense.amount, 0),
+});
+export const totalActualExpenses = (p: Period) =>
+  Object.values(actualExpenseTotals(p)).reduce((sum, amount) => sum + amount, 0);
+const dayNumber = (date: string) =>
+  Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 86400000);
+export const elapsedPeriodDays = (p: Period, today: string) => {
+  const effectiveDate =
+    today < p.startDate
+      ? p.startDate
+      : today > p.nextSalaryDate
+        ? p.nextSalaryDate
+        : today;
+  return Math.max(1, dayNumber(effectiveDate) - dayNumber(p.startDate) + 1);
+};
+export const averageDailyExpense = (p: Period, today: string) =>
+  totalActualExpenses(p) / elapsedPeriodDays(p, today);
+export const sortPlannedExpenses = (expenses: Expense[]) =>
+  [...expenses].sort((left, right) => {
+    const leftPlanned = left.status === "предстоит";
+    const rightPlanned = right.status === "предстоит";
+    if (leftPlanned !== rightPlanned) return leftPlanned ? -1 : 1;
+    return (left.date ?? "").localeCompare(right.date ?? "");
+  });
 export const suggestedPreviousBalance = (period?: Period) =>
   period ? Math.max(0, freeMoney(period)) : 0;
 export const formatAmount = (n: number) => {
@@ -390,6 +441,20 @@ export const daysUntil = (date: string) =>
         86400000,
     ),
   );
+export const salaryCountdownLabel = (days: number) => {
+  if (days === 0) return "день зарплаты";
+  const mod100 = days % 100;
+  const mod10 = days % 10;
+  const word =
+    mod100 >= 11 && mod100 <= 14
+      ? "дней"
+      : mod10 === 1
+        ? "день"
+        : mod10 >= 2 && mod10 <= 4
+          ? "дня"
+          : "дней";
+  return `${days} ${word} до зарплаты`;
+};
 export type PeriodState = "active" | "salary-day" | "finished";
 export const periodState = (period: Period, today: string): PeriodState => {
   if (today < period.nextSalaryDate) return "active";

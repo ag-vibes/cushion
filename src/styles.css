@@ -208,6 +208,37 @@ p {
 .everyday-row > span:nth-child(2).negative {
   color: var(--color-danger);
 }
+.everyday-history-summary {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.everyday-history-summary::after {
+  content: "›";
+  color: var(--color-ink-subtle);
+  font-size: 18px;
+  transform: rotate(90deg);
+  transition: transform 120ms ease;
+}
+.everyday-history-summary[aria-expanded="true"]::after {
+  transform: rotate(-90deg);
+}
+.everyday-history-summary > span:nth-child(2) {
+  margin-left: auto;
+}
+.everyday-expense-list {
+  padding-left: 14px;
+  border-left: 2px solid var(--color-surface);
+}
+.everyday-expense-detail:first-child {
+  border-top: 1px solid rgba(43, 36, 32, 0.07);
+}
+.everyday-expense-detail > span:first-child {
+  color: var(--color-ink-subtle);
+}
 .category-progress {
   grid-column: 1 / -1;
   display: block;
@@ -539,6 +570,21 @@ select {
 }
 .summary .row:last-of-type {
   border-bottom: 0;
+}
+.period-totals {
+  margin-top: 4px;
+}
+.period-totals .row:last-child {
+  border-bottom: 0;
+}
+.group-total {
+  margin: 12px 0 0;
+  color: var(--color-ink-muted);
+  font-size: var(--font-meta);
+  text-align: right;
+}
+.history-expense-group .muted + .group-total {
+  margin-top: 16px;
 }
 .period-settings,
 .expense-settings {

@@ -26,6 +26,10 @@ These documents are the source of truth.
 13. Ask only when requirements conflict or a required behaviour is genuinely unspecified.
 14. When a technical choice is not specified, choose a stable and simple option appropriate for a small local-first web app.
 15. Add tests for financial calculations and status-change behaviour before considering the MVP complete.
+16. Before every iteration of changes, check the full requested scope against the current product logic, existing scenarios and source-of-truth documents. Identify contradictions, duplicated behaviour and edge cases before editing files.
+17. If a requested change conflicts with current logic or introduces an unresolved inconsistency, stop and resolve the product decision with the user before implementation.
+18. Every change must preserve or simplify the architecture. Do not add parallel models, duplicate state, special-case flows or abstractions unless they are strictly required by the approved MVP behaviour.
+19. After every iteration, verify that the resulting behaviour remains internally consistent, does not break existing scenarios and is reflected in the relevant tests and product documentation.
 
 ## Implementation sequence
 

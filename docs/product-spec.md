@@ -124,7 +124,14 @@ Categories are analytical labels only.
 
 A category does not determine financial behaviour. Expense type determines financial behaviour.
 
-The user may add, rename, reorder and delete categories. A category may belong to multiple expense types, and those types can be edited. Lists filtered by expense type preserve the relative order of this shared category list.
+The user may add, rename, reorder and delete categories. A category may belong to multiple expense types, and those types can be edited.
+
+Two independent display orders are maintained in `ещё` → `настройка категорий`:
+
+- the complete category list can be reordered for organisation within the `категории` section only;
+- everyday categories can be reordered in `повседневные лимиты`, and this order is used for everyday categories on `главная`, `период` and in period history.
+
+The complete category-list order does not sort planned, unplanned or impulse expense entries. Planned expenses use date and status order; unplanned and impulse entries use chronological entry order.
 
 Deleting a category must not delete existing expenses. A category cannot be deleted while it has an active everyday limit or everyday spending in the current period. Existing expenses in completed periods retain their original category value.
 
@@ -253,7 +260,7 @@ Rules:
 - when a future planned date arrives, status automatically becomes `оплачено`;
 - selecting `предстоит` before its date records today's date as the payment date;
 - while the expense is `предстоит`, its date is shown on both `главная` and `период`;
-- after payment, the date remains visible only on `период`;
+- after payment, the date is no longer displayed;
 - while the status is `предстоит`, the date may be changed from `период`;
 - a planned date must be today or later and no later than the current period's next-salary date;
 - several planned expenses may use the same category in one period;
@@ -356,7 +363,7 @@ Fields:
 - the amount is subtracted immediately;
 - there is no status or date input;
 - today's date is recorded automatically;
-- the date is hidden on `главная` and shown on `период`;
+- the date is not displayed in expense lists;
 - the name and amount may be edited;
 - the expense may be edited or deleted during the current period.
 
@@ -374,7 +381,7 @@ Rules:
 
 - the amount reduces free money immediately;
 - today's date is recorded automatically;
-- the date is shown on `период`, but not on `главная`;
+- the date is not displayed in expense lists;
 - no status is required;
 - the name and amount of an existing impulse purchase may be edited;
 - the purchase may be edited or deleted during the current period.
@@ -447,6 +454,10 @@ Must display:
 - `повседневные расходы`;
 - `внеплановые расходы`;
 - `импульсивные покупки`.
+- total actual expenses for the period;
+- average actual expense per elapsed period day.
+
+The salary countdown uses correct Russian forms: `1 день до зарплаты`, `2 дня до зарплаты`, `5 дней до зарплаты`; on the next-salary date it reads `день зарплаты`.
 
 Primary action:
 
@@ -456,7 +467,9 @@ The primary action is placed immediately below the period hero and scrolls with 
 
 The free money value must be the strongest visual element.
 
-Within every expense group, rows follow the shared category order configured in `ещё`; entering or editing amounts must not reorder them. Only planned expenses have a status. The `предстоит` status is shown on `главная` and `период`; selecting it changes the expense to `оплачено` and removes the status label without changing free money.
+Planned expenses show future entries first from the nearest date to the latest. Paid entries follow in chronological order, so a newly paid entry moves to the bottom. Unplanned and impulse entries remain in chronological entry order from oldest to newest. Everyday categories follow the order configured in `повседневные лимиты`. Only planned expenses have a status. The `предстоит` status is shown on `главная` and `период`; selecting it changes the expense to `оплачено` and removes the status label without changing free money.
+
+The total and daily average include only actual expenses: paid planned expenses, actual everyday spending, unplanned expenses and impulse purchases. Future planned reservations and unused everyday limits are excluded. For the current period, the daily average divides actual expenses by elapsed calendar days including today and the start date.
 
 ### 11.2 Добавить расход
 
@@ -487,6 +500,8 @@ Must support:
 - clearing the current period after confirmation.
 
 The first section is `скорректировать внесённые расходы`. It contains only actual expense entries, never reusable limit settings. The `изменить период` section follows it.
+
+Everyday expenses in this section are grouped by category. The collapsed row shows the category and its total actual spending. Selecting it reveals individual expenses with their recorded date and time in chronological order. Editing and deletion actions remain attached to individual expenses.
 
 Deleting any expense, deleting a category, clearing the current period or replacing local data from a backup always requires an in-app confirmation. Native browser confirmation dialogs are not used.
 
@@ -566,7 +581,7 @@ Saved amounts are suggestions only and are never automatically added to a new pe
 
 Purpose: view previous financial periods.
 
-The user may open a period and view its final values and expenses.
+The user may open a period and view its final values and expenses in four type cards. The remaining money in the completed period is labelled `остаток`, not `итог`. Planned, unplanned and impulse cards list each expense with category, name when present and amount, without dates or statuses. The everyday card lists category totals without individual operations or dates. Each card displays its type total. Every expense row has one bottom divider; the `всего` row has no divider of its own. The screen ends with total actual expenses and the average actual expense per calendar day of the completed period.
 
 Historical periods are read-only in the MVP.
 

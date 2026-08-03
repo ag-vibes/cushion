@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  actualExpenseTotals,
   addEverydayExpense,
+  averageDailyExpense,
   categoriesFor,
   defaultCategoryTypes,
   emptyData,
@@ -12,8 +14,11 @@ import {
   suggestedPreviousBalance,
   periodState,
   recalculateAutomaticEverydayLimits,
+  salaryCountdownLabel,
   settleScheduledExpenses,
+  sortPlannedExpenses,
   syncAutomaticEverydaySettings,
+  totalActualExpenses,
   validBackup,
   type Period,
 } from "./domain";
@@ -51,6 +56,64 @@ describe("financial calculations", () => {
       impulse: [{ id: "i", category: "shopping", amount: 2000 }],
     });
     expect(freeMoney(p)).toBe(33000);
+  });
+  it("counts only actual expenses in totals and the daily average", () => {
+    const p = period({
+      startDate: "2026-07-01",
+      nextSalaryDate: "2026-07-31",
+      mandatory: [
+        { id: "paid", category: "аренда", amount: 3000, status: "оплачено" },
+        {
+          id: "future",
+          category: "красота",
+          amount: 2000,
+          status: "предстоит",
+        },
+      ],
+      everyday: [
+        {
+          id: "food",
+          category: "еда",
+          limit: 10000,
+          expenses: [{ id: "meal", amount: 500 }],
+        },
+      ],
+      oneOff: [{ id: "repair", category: "услуги", amount: 1000 }],
+      impulse: [{ id: "candle", category: "покупки", amount: 500 }],
+    });
+    expect(actualExpenseTotals(p)).toEqual({
+      mandatory: 3000,
+      everyday: 500,
+      oneOff: 1000,
+      impulse: 500,
+    });
+    expect(totalActualExpenses(p)).toBe(5000);
+    expect(averageDailyExpense(p, "2026-07-05")).toBe(1000);
+  });
+
+  it("sorts upcoming planned expenses before paid expenses", () => {
+    const sorted = sortPlannedExpenses([
+      { id: "paid-new", category: "a", amount: 1, status: "оплачено", date: "2026-07-03" },
+      { id: "later", category: "b", amount: 1, status: "предстоит", date: "2026-07-10" },
+      { id: "paid-old", category: "c", amount: 1, status: "оплачено", date: "2026-07-01" },
+      { id: "near", category: "d", amount: 1, status: "предстоит", date: "2026-07-05" },
+    ]);
+    expect(sorted.map((item) => item.id)).toEqual([
+      "near",
+      "later",
+      "paid-old",
+      "paid-new",
+    ]);
+  });
+
+  it("uses correct Russian salary countdown forms", () => {
+    expect(salaryCountdownLabel(0)).toBe("день зарплаты");
+    expect(salaryCountdownLabel(1)).toBe("1 день до зарплаты");
+    expect(salaryCountdownLabel(2)).toBe("2 дня до зарплаты");
+    expect(salaryCountdownLabel(4)).toBe("4 дня до зарплаты");
+    expect(salaryCountdownLabel(5)).toBe("5 дней до зарплаты");
+    expect(salaryCountdownLabel(11)).toBe("11 дней до зарплаты");
+    expect(salaryCountdownLabel(21)).toBe("21 день до зарплаты");
   });
   it("does not subtract again when paid", () => {
     const a = period({
@@ -278,6 +341,27 @@ describe("financial calculations", () => {
       periods: [],
     });
     expect(data.categories).toEqual(["еда"]);
+  });
+  it("initializes and repairs the independent everyday category order", () => {
+    const data = normalizeData({
+      version: 1,
+      categories: ["аренда", "еда", "транспорт", "покупки"],
+      categoryTypes: {
+        аренда: ["mandatory"],
+        еда: ["everyday"],
+        транспорт: ["everyday"],
+        покупки: ["everyday", "impulse"],
+      },
+      everydayCategoryOrder: ["транспорт", "аренда", "несуществующая"],
+      drafts: [],
+      periods: [],
+    });
+
+    expect(data.everydayCategoryOrder).toEqual([
+      "транспорт",
+      "еда",
+      "покупки",
+    ]);
   });
   it("recognises a legacy limit created from matching current spending", () => {
     const migrated = normalizeData({

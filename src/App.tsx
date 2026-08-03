@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  actualExpenseTotals,
   addEverydayExpense,
+  averageDailyExpense,
   categoriesFor,
   daysUntil,
   formatAmount,
@@ -9,10 +11,13 @@ import {
   periodState,
   recalculateAutomaticEverydayLimits,
   settleScheduledExpenses,
+  salaryCountdownLabel,
+  sortPlannedExpenses,
   spent,
   stillPlanned,
   suggestedPreviousBalance,
   syncAutomaticEverydaySettings,
+  totalActualExpenses,
   uid,
   validBackup,
   type AppData,
@@ -215,6 +220,7 @@ export function App() {
     ) : page === "history" ? (
       <History
         periods={data.periods.filter((p) => !p.current)}
+        everydayOrder={data.everydayCategoryOrder ?? data.categories}
         back={() => setPage("more")}
       />
     ) : page === "backup" ? (
@@ -231,7 +237,7 @@ export function App() {
       <Home
         period={current}
         go={setPage}
-        categoryOrder={data.categories}
+        categoryOrder={data.everydayCategoryOrder ?? data.categories}
         onChange={(period) =>
           update(
             {
@@ -333,7 +339,7 @@ export function Home({
           <span>
             {dateLabel(period.startDate)} — {dateLabel(period.nextSalaryDate)}
           </span>
-          <span>{daysUntil(period.nextSalaryDate)} дней до зарплаты</span>
+          <span>{salaryCountdownLabel(daysUntil(period.nextSalaryDate))}</span>
         </p>
         <h1 className={hasFreeMoney ? "" : "no-free-money"}>
           {money(availableMoney)}
@@ -358,9 +364,9 @@ export function Home({
         p={period}
         categoryOrder={categoryOrder}
         statusEditable={!finished}
-        showDates={false}
         onChange={onChange}
       />
+      <PeriodTotals period={period} today={todayIso()} />
     </>
   );
 }
@@ -368,17 +374,16 @@ function Groups({
   p,
   editable,
   statusEditable,
-  showDates = false,
   onChange,
   categoryOrder,
 }: {
   p: Period;
   editable?: boolean;
   statusEditable?: boolean;
-  showDates?: boolean;
   onChange?: (p: Period) => void;
   categoryOrder?: string[];
 }) {
+  const [expandedEveryday, setExpandedEveryday] = useState<string[]>([]);
   const [amountEdit, setAmountEdit] = useState<{
     title: string;
     value: number;
@@ -404,7 +409,7 @@ function Groups({
             ...p,
             mandatory: p.mandatory.map((x) =>
               x.id === e.id
-                ? { ...x, status: "оплачено", date: x.date ?? todayIso() }
+                ? { ...x, status: "оплачено", date: todayIso() }
                 : x,
             ),
           })
@@ -426,7 +431,7 @@ function Groups({
       <span>
         {e.category}
         {e.name && <small>{e.name}</small>}
-        {(showDates || e.status === "предстоит") && e.date && (
+        {e.status === "предстоит" && e.date && (
           <small>{dateLabel(e.date)}</small>
         )}
       </span>
@@ -469,15 +474,13 @@ function Groups({
     const position = categoryOrder?.indexOf(category) ?? -1;
     return position < 0 ? Number.MAX_SAFE_INTEGER : position;
   };
-  const ordered = <T extends { category: string }>(items: T[]) =>
+  const orderedEveryday = <T extends { category: string }>(items: T[]) =>
     [...items].sort(
       (left, right) =>
         categoryPosition(left.category) - categoryPosition(right.category),
     );
-  const everydayExpenses = ordered(
-    p.everyday.flatMap((item) =>
-      item.expenses.map((expense) => ({ ...expense, category: item.category })),
-    ),
+  const everydayCategories = orderedEveryday(
+    p.everyday.filter((item) => item.expenses.length > 0),
   );
   const everydayExpenseRow = (expense: {
     id: string;
@@ -486,9 +489,8 @@ function Groups({
     createdAt?: string;
     date?: string;
   }) => (
-    <div className="row" key={expense.id}>
+    <div className="row everyday-expense-detail" key={expense.id}>
       <span>
-        {expense.category}
         {expense.createdAt ? (
           <small>{expenseMomentLabel(expense.createdAt)}</small>
         ) : (
@@ -551,13 +553,52 @@ function Groups({
           title="запланированные расходы"
           empty="запланированных расходов пока нет"
         >
-          {ordered(p.mandatory).map((e) => row(e, "mandatory"))}
+          {sortPlannedExpenses(p.mandatory).map((e) => row(e, "mandatory"))}
         </Group>
         <section className="card">
           <h2>повседневные расходы</h2>
           {editable ? (
-            everydayExpenses.length ? (
-              everydayExpenses.map(everydayExpenseRow)
+            everydayCategories.length ? (
+              everydayCategories.map((item) => {
+                const expanded = expandedEveryday.includes(item.category);
+                return (
+                  <div className="everyday-history-group" key={item.id}>
+                    <button
+                      type="button"
+                      className="row everyday-history-summary"
+                      aria-expanded={expanded}
+                      onClick={() =>
+                        setExpandedEveryday((current) =>
+                          expanded
+                            ? current.filter(
+                                (category) => category !== item.category,
+                              )
+                            : [...current, item.category],
+                        )
+                      }
+                    >
+                      <span>{item.category}</span>
+                      <span>{money(spent(item))}</span>
+                    </button>
+                    {expanded && (
+                      <div className="everyday-expense-list">
+                        {[...item.expenses]
+                          .sort((left, right) =>
+                            (left.createdAt ?? left.date ?? "").localeCompare(
+                              right.createdAt ?? right.date ?? "",
+                            ),
+                          )
+                          .map((expense) =>
+                            everydayExpenseRow({
+                              ...expense,
+                              category: item.category,
+                            }),
+                          )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             ) : (
               <p className="muted">повседневных расходов не было</p>
             )
@@ -565,7 +606,7 @@ function Groups({
             <p className="muted">повседневные лимиты не заданы</p>
           ) : null}
           {!editable &&
-            ordered(p.everyday).map((e) => {
+            orderedEveryday(p.everyday).map((e) => {
               const usage = e.limit > 0 ? (spent(e) / e.limit) * 100 : 0;
               const progressTone =
                 usage > 90 ? "danger" : usage >= 70 ? "warning" : "safe";
@@ -593,13 +634,13 @@ function Groups({
             })}
         </section>
         <Group title="внеплановые расходы" empty="внеплановых расходов не было">
-          {ordered(p.oneOff).map((e) => row(e, "oneOff"))}
+          {p.oneOff.map((e) => row(e, "oneOff"))}
         </Group>
         <Group
           title="импульсивные покупки"
           empty="импульсивных покупок не было"
         >
-          {ordered(p.impulse).map((e) => row(e, "impulse"))}
+          {p.impulse.map((e) => row(e, "impulse"))}
         </Group>
       </div>
       {amountEdit && (
@@ -687,6 +728,21 @@ function Group({
       ) : (
         children
       )}
+    </section>
+  );
+}
+
+function PeriodTotals({ period, today }: { period: Period; today: string }) {
+  return (
+    <section className="card period-totals" aria-label="итоги периода">
+      <div className="row">
+        <span>расходы за период</span>
+        <span>{money(totalActualExpenses(period))}</span>
+      </div>
+      <div className="row">
+        <span>средний расход в день</span>
+        <span>{money(averageDailyExpense(period, today))}</span>
+      </div>
     </section>
   );
 }
@@ -1164,9 +1220,8 @@ export function PeriodScreen({
         <Groups
           p={period}
           editable={!finished}
-          showDates
           onChange={finished ? undefined : change}
-          categoryOrder={data.categories}
+          categoryOrder={data.everydayCategoryOrder ?? data.categories}
         />
       </section>
       <section className="period-settings">
@@ -1519,6 +1574,14 @@ export function Categories({
   const [order, setOrder] = useState(data.categories);
   const dragged = useRef<string | undefined>(undefined);
   const dragOrder = useRef(data.categories);
+  const initialEverydayOrder = (
+    data.everydayCategoryOrder ?? data.categories
+  ).filter((category) =>
+    data.categoryTypes[category]?.includes("everyday"),
+  );
+  const [everydayOrder, setEverydayOrder] = useState(initialEverydayOrder);
+  const draggedEveryday = useRef<string | undefined>(undefined);
+  const everydayDragOrder = useRef(initialEverydayOrder);
   const [editing, setEditing] = useState<string>();
   const [deleting, setDeleting] = useState<string>();
   const [editName, setEditName] = useState("");
@@ -1532,6 +1595,13 @@ export function Categories({
     setOrder(data.categories);
     dragOrder.current = data.categories;
   }, [data.categories]);
+  useEffect(() => {
+    const next = (data.everydayCategoryOrder ?? data.categories).filter(
+      (category) => data.categoryTypes[category]?.includes("everyday"),
+    );
+    setEverydayOrder(next);
+    everydayDragOrder.current = next;
+  }, [data.categories, data.categoryTypes, data.everydayCategoryOrder]);
   const typeLabels: Record<ExpenseKind, string> = {
     mandatory: "запланированные",
     everyday: "повседневные",
@@ -1555,12 +1625,31 @@ export function Categories({
       return setEditError("такая категория уже есть");
     const renameExpense = (expense: Expense) =>
       expense.category === editing ? { ...expense, category: name } : expense;
+    const wasEveryday = data.categoryTypes[editing]?.includes("everyday");
+    const nextEverydayOrder = (
+      data.everydayCategoryOrder ?? categoriesFor(data, "everyday")
+    )
+      .filter((category) => category !== editing)
+      .concat(
+        editTypes.includes("everyday")
+          ? wasEveryday
+            ? []
+            : [name]
+          : [],
+      );
+    if (wasEveryday && editTypes.includes("everyday")) {
+      const position = (
+        data.everydayCategoryOrder ?? categoriesFor(data, "everyday")
+      ).indexOf(editing);
+      nextEverydayOrder.splice(position < 0 ? nextEverydayOrder.length : position, 0, name);
+    }
     save(
       {
         ...data,
         categories: data.categories.map((category) =>
           category === editing ? name : category,
         ),
+        everydayCategoryOrder: nextEverydayOrder,
         categoryTypes: Object.fromEntries(
           Object.entries(data.categoryTypes)
             .filter(([category]) => category !== editing)
@@ -1627,6 +1716,9 @@ export function Categories({
       {
         ...data,
         categories: [...data.categories, name],
+        everydayCategoryOrder: types.includes("everyday")
+          ? [...(data.everydayCategoryOrder ?? categoriesFor(data, "everyday")), name]
+          : data.everydayCategoryOrder ?? categoriesFor(data, "everyday"),
         categoryTypes: { ...data.categoryTypes, [name]: types },
       },
       "категория добавлена",
@@ -1647,8 +1739,20 @@ export function Categories({
     dragOrder.current = next;
     setOrder(next);
   };
+  const moveEverydayDragged = (target: string) => {
+    const source = draggedEveryday.current;
+    if (!source || source === target) return;
+    const next = [...everydayDragOrder.current];
+    const from = next.indexOf(source);
+    const to = next.indexOf(target);
+    if (from < 0 || to < 0) return;
+    next.splice(from, 1);
+    next.splice(to, 0, source);
+    everydayDragOrder.current = next;
+    setEverydayOrder(next);
+  };
   const mandatoryCategories = categoriesFor(data, "mandatory");
-  const everydayCategories = categoriesFor(data, "everyday");
+  const everydayCategories = everydayOrder;
   return (
     <section>
       <Top title="настройка категорий" back={back} />
@@ -1683,11 +1787,43 @@ export function Categories({
             (item) => item.category === category,
           );
           return (
-            <SettingsRow
+            <div
               key={category}
-              label={category}
-              trailing={
-                <>
+              className="row category-row"
+              data-everyday-category={category}
+            >
+              <button
+                className="drag-handle"
+                aria-label={`переместить повседневную категорию ${category}`}
+                onPointerDown={(event) => {
+                  draggedEveryday.current = category;
+                  everydayDragOrder.current = everydayOrder;
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={(event) => {
+                  if (!draggedEveryday.current) return;
+                  const target = document
+                    .elementFromPoint(event.clientX, event.clientY)
+                    ?.closest<HTMLElement>("[data-everyday-category]")
+                    ?.dataset.everydayCategory;
+                  if (target) moveEverydayDragged(target);
+                }}
+                onPointerUp={() => {
+                  if (draggedEveryday.current)
+                    save(
+                      {
+                        ...data,
+                        everydayCategoryOrder: everydayDragOrder.current,
+                      },
+                      "порядок повседневных категорий сохранён",
+                    );
+                  draggedEveryday.current = undefined;
+                }}
+              >
+                ≡
+              </button>
+              <span>{category}</span>
+              <span className="expense-trailing">
                   {money(setting?.limit ?? 0)}{" "}
                   <button
                     className="icon"
@@ -1696,9 +1832,8 @@ export function Categories({
                   >
                     ✎
                   </button>
-                </>
-              }
-            />
+              </span>
+            </div>
           );
         })}
       </div>
@@ -1859,6 +1994,9 @@ export function Categories({
                     categories: data.categories.filter(
                       (item) => item !== deleting,
                     ),
+                    everydayCategoryOrder: (
+                      data.everydayCategoryOrder ?? categoriesFor(data, "everyday")
+                    ).filter((item) => item !== deleting),
                     categoryTypes: Object.fromEntries(
                       Object.entries(data.categoryTypes).filter(
                         ([name]) => name !== deleting,
@@ -2018,9 +2156,58 @@ export function Categories({
   );
 }
 
-function History({ periods, back }: { periods: Period[]; back: () => void }) {
+function HistoricalExpenseGroup({
+  title,
+  expenses,
+  total,
+}: {
+  title: string;
+  expenses: Expense[];
+  total: number;
+}) {
+  return (
+    <section className="card history-expense-group">
+      <h2>{title}</h2>
+      {expenses.length ? (
+        expenses.map((expense) => (
+          <div className="row" key={expense.id}>
+            <span>
+              {expense.category}
+              {expense.name && <small>{expense.name}</small>}
+            </span>
+            <span>{money(expense.amount)}</span>
+          </div>
+        ))
+      ) : (
+        <p className="muted">расходов не было</p>
+      )}
+      <p className="group-total">всего {money(total)}</p>
+    </section>
+  );
+}
+
+export function History({
+  periods,
+  everydayOrder,
+  back,
+}: {
+  periods: Period[];
+  everydayOrder: string[];
+  back: () => void;
+}) {
   const [open, setOpen] = useState<Period>();
-  if (open)
+  if (open) {
+    const totals = actualExpenseTotals(open);
+    const categoryPosition = (category: string) => {
+      const position = everydayOrder.indexOf(category);
+      return position < 0 ? Number.MAX_SAFE_INTEGER : position;
+    };
+    const everyday = [...open.everyday]
+      .filter((item) => spent(item) > 0)
+      .sort(
+        (left, right) =>
+          categoryPosition(left.category) - categoryPosition(right.category),
+      );
     return (
       <section>
         <Top title="история периода" back={() => setOpen(undefined)} />
@@ -2028,11 +2215,43 @@ function History({ periods, back }: { periods: Period[]; back: () => void }) {
           <p>
             {dateLabel(open.startDate)} — {dateLabel(open.nextSalaryDate)}
           </p>
-          <h2>итог: {money(freeMoney(open))}</h2>
+          <h2>остаток: {money(freeMoney(open))}</h2>
         </div>
-        <Groups p={open} />
+        <div className="groups history-groups">
+          <HistoricalExpenseGroup
+            title="запланированные расходы"
+            expenses={sortPlannedExpenses(open.mandatory)}
+            total={totals.mandatory}
+          />
+          <section className="card history-expense-group">
+            <h2>повседневные расходы</h2>
+            {everyday.length ? (
+              everyday.map((item) => (
+                <div className="row" key={item.id}>
+                  <span>{item.category}</span>
+                  <span>{money(spent(item))}</span>
+                </div>
+              ))
+            ) : (
+              <p className="muted">расходов не было</p>
+            )}
+            <p className="group-total">всего {money(totals.everyday)}</p>
+          </section>
+          <HistoricalExpenseGroup
+            title="внеплановые расходы"
+            expenses={open.oneOff}
+            total={totals.oneOff}
+          />
+          <HistoricalExpenseGroup
+            title="импульсивные покупки"
+            expenses={open.impulse}
+            total={totals.impulse}
+          />
+        </div>
+        <PeriodTotals period={open} today={open.nextSalaryDate} />
       </section>
     );
+  }
   return (
     <section>
       <Top title="история периодов" back={back} />
